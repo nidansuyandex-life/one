@@ -1,7 +1,0 @@
-<resources>
-    <style name="Theme.HealthApp" parent="android:Theme.Material.Light.NoActionBar">
-        <item name="android:statusBarColor">#1FBFA9</item>
-        <item name="android:navigationBarColor">#FFFFFF</item>
-        <item name="android:windowBackground">#F5F6FA</item>
-    </style>
-</resources>
