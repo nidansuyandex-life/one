@@ -2,19 +2,17 @@ package com.health.app
 
 import android.app.Activity
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.speech.RecognitionListener
+import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
 import android.util.Log
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
-import com.iflytek.sparkchain.core.recognizer.RecognizerConstant
-import com.iflytek.sparkchain.core.recognizer.RecognizerListener
-import com.iflytek.sparkchain.core.recognizer.RecognizerResult
-import com.iflytek.sparkchain.core.recognizer.SpeechError
-import com.iflytek.sparkchain.core.recognizer.SpeechRecognizer
-import org.json.JSONObject
 
 class AndroidBridge(
     private val activity: Activity,
@@ -22,7 +20,7 @@ class AndroidBridge(
 ) {
     companion object {
         private const val TAG = "VoiceBridge"
-        private const val VOICE_DURATION_MS = 15_000L   // 15 秒自动停
+        private const val VOICE_DURATION_MS = 15_000L
         private const val PREFS = "app_storage"
     }
 
@@ -32,34 +30,76 @@ class AndroidBridge(
     private var isRecognizing = false
     private val resultBuffer = StringBuilder()
 
-    // ==================== 语音识别 ====================
-
     @JavascriptInterface
-    fun isSpeechAvailable(): Boolean = true   // SparkChain 始终可用
+    fun isSpeechAvailable(): Boolean = try {
+        SpeechRecognizer.isRecognitionAvailable(activity)
+    } catch (e: Exception) { false }
 
     @JavascriptInterface
     fun startVoice() = handler.post { doStart() }
 
     @JavascriptInterface
     fun stopVoice() = handler.post {
-        try { recognizer?.stop() } catch (_: Exception) {}
+        try { recognizer?.stopListening() } catch (_: Exception) {}
         cancelAutoStop()
         isRecognizing = false
     }
 
     private fun ensureRecognizer(): SpeechRecognizer {
         recognizer?.let { return it }
-        val r = SpeechRecognizer.create(activity)
+        val r = SpeechRecognizer.createSpeechRecognizer(activity)
+        r.setRecognitionListener(buildListener())
         recognizer = r
         return r
     }
 
+    private fun buildListener() = object : RecognitionListener {
+        override fun onReadyForSpeech(params: Bundle?) { notifyState("started") }
+        override fun onBeginningOfSpeech() {}
+        override fun onRmsChanged(rmsdB: Float) {}
+        override fun onBufferReceived(buffer: ByteArray?) {}
+        override fun onEndOfSpeech() {}
+        override fun onEvent(eventType: Int, params: Bundle?) {}
+        override fun onPartialResults(partialResults: Bundle?) {
+            val t = partialResults?.getStringArrayList(
+                SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()
+            if (!t.isNullOrEmpty()) {
+                resultBuffer.setLength(0)
+                resultBuffer.append(t)
+            }
+        }
+        override fun onResults(results: Bundle?) {
+            isRecognizing = false
+            cancelAutoStop()
+            val text = results?.getStringArrayList(
+                SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()
+                ?: resultBuffer.toString()
+            if (text.isNullOrEmpty()) notifyError("没有识别到内容")
+            else notifyResult(text)
+        }
+        override fun onError(error: Int) {
+            isRecognizing = false
+            cancelAutoStop()
+            notifyError(when (error) {
+                SpeechRecognizer.ERROR_NO_MATCH -> "没有识别到内容"
+                SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "没有说话"
+                SpeechRecognizer.ERROR_NETWORK,
+                SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> "网络错误"
+                SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "缺少录音权限"
+                SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> "识别服务忙"
+                SpeechRecognizer.ERROR_CLIENT -> "语音连接异常，请再点一次"
+                else -> "识别失败 ($error)"
+            })
+        }
+    }
+
     private fun doStart() {
-        if (isRecognizing) {
-            Log.d(TAG, "already recognizing, skip")
+        if (isRecognizing) return
+
+        if (!isSpeechAvailable()) {
+            notifyError("当前手机没有可用的语音识别服务，请使用下方【手动输入文字】")
             return
         }
-
         if (activity.checkSelfPermission(android.Manifest.permission.RECORD_AUDIO)
             != PackageManager.PERMISSION_GRANTED) {
             activity.requestPermissions(
@@ -68,72 +108,38 @@ class AndroidBridge(
             return
         }
 
-        val rec = try { ensureRecognizer() } catch (e: Exception) {
-            Log.e(TAG, "createRecognizer failed", e)
-            notifyError("语音服务初始化失败，请重启 App")
-            return
-        }
+        try { recognizer?.cancel() } catch (_: Exception) {}
 
-        resultBuffer.setLength(0)
-
-        // ★ SparkChain 参数设置
-        rec.setParameter(RecognizerConstant.PARAMS, null)
-        rec.setParameter(RecognizerConstant.LANGUAGE, "zh_cn")
-        rec.setParameter(RecognizerConstant.ACCENT, "mandarin")
-        rec.setParameter(RecognizerConstant.VAD_BOS, 5000)   // 前端点 5s
-        rec.setParameter(RecognizerConstant.VAD_EOS, 2000)   // 后端点静音 2s
-        rec.setParameter(RecognizerConstant.RESULT_TYPE, "json")
-        rec.setParameter(RecognizerConstant.DWA, "wpgs")     // 开启动态修正
-
-        val listener = object : RecognizerListener {
-            override fun onVolumeChanged(volume: Int, data: ByteArray?) {}
-            override fun onBeginOfSpeech() {
-                Log.d(TAG, "onBeginOfSpeech")
+        handler.postDelayed({
+            val rec = try { ensureRecognizer() } catch (e: Exception) {
+                Log.e(TAG, "create failed", e)
+                notifyError("语音初始化失败")
+                return@postDelayed
+            }
+            resultBuffer.setLength(0)
+            val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                         RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE, "zh-CN")
+                putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+                putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+            }
+            try {
+                rec.startListening(intent)
+                isRecognizing = true
                 notifyState("started")
-            }
-            override fun onEndOfSpeech() { Log.d(TAG, "onEndOfSpeech") }
-
-            override fun onResult(result: RecognizerResult?, isLast: Boolean) {
-                val text = parseIatResult(result?.resultString)
-                if (text.isNotEmpty()) resultBuffer.append(text)
-
-                if (isLast) {
-                    isRecognizing = false
-                    cancelAutoStop()
-                    val finalText = resultBuffer.toString().trim()
-                    if (finalText.isNotEmpty()) notifyResult(finalText)
-                    else notifyError("没有识别到内容")
-                }
-            }
-
-            override fun onError(error: SpeechError?) {
-                Log.w(TAG, "onError: ${error?.code} ${error?.message}")
+            } catch (e: Exception) {
+                Log.e(TAG, "start failed", e)
                 isRecognizing = false
-                cancelAutoStop()
-                notifyError(error?.message ?: "识别失败")
+                notifyError("启动失败，请再点一次")
+                return@postDelayed
             }
-
-            override fun onEvent(eventType: Int, params: Bundle?) {}
-        }
-
-        try {
-            rec.start(listener)   // ★ SparkChain 启动方法
-            isRecognizing = true
-            notifyState("started")
-        } catch (e: Exception) {
-            Log.e(TAG, "start failed", e)
-            isRecognizing = false
-            notifyError("启动失败，请再点一次麦克风")
-            return
-        }
-
-        // 15 秒自动停
-        autoStop = Runnable {
-            Log.d(TAG, "15s timeout, auto stop")
-            try { recognizer?.stop() } catch (_: Exception) {}
-            isRecognizing = false
-        }
-        handler.postDelayed(autoStop!!, VOICE_DURATION_MS)
+            autoStop = Runnable {
+                try { recognizer?.stopListening() } catch (_: Exception) {}
+                isRecognizing = false
+            }
+            handler.postDelayed(autoStop!!, VOICE_DURATION_MS)
+        }, 120)
     }
 
     private fun cancelAutoStop() {
@@ -141,38 +147,13 @@ class AndroidBridge(
         autoStop = null
     }
 
-    /** 解析 JSON（SparkChain 返回格式） */
-    private fun parseIatResult(json: String?): String {
-        if (json.isNullOrEmpty()) return ""
-        val sb = StringBuilder()
-        try {
-            val jo = JSONObject(json)
-            if (jo.has("ws")) {
-                val ws = jo.getJSONArray("ws")
-                for (i in 0 until ws.length()) {
-                    val cw = ws.getJSONObject(i).getJSONArray("cw")
-                    if (cw.length() > 0) {
-                        sb.append(cw.getJSONObject(0).getString("w"))
-                    }
-                }
-            } else if (jo.has("text")) {
-                sb.append(jo.getString("text"))
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "parseIatResult error", e)
-        }
-        return sb.toString()
-    }
-
     fun destroy() {
         cancelAutoStop()
-        try { recognizer?.stop() } catch (_: Exception) {}
+        try { recognizer?.cancel() } catch (_: Exception) {}
         try { recognizer?.destroy() } catch (_: Exception) {}
         recognizer = null
         isRecognizing = false
     }
-
-    // ==================== 持久化 ====================
 
     @JavascriptInterface
     fun save(key: String, value: String) {
@@ -188,8 +169,6 @@ class AndroidBridge(
         activity.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit().remove(key).apply()
     }
-
-    // ==================== 回调 JS ====================
 
     private fun esc(s: String): String =
         s.replace("\\", "\\\\")
