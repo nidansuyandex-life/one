@@ -16,9 +16,7 @@ android {
     }
 
     buildTypes {
-        debug {
-            minifyEnabled false
-        }
+        debug { minifyEnabled false }
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'),
@@ -31,11 +29,22 @@ android {
         targetCompatibility JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = '17'
+    kotlinOptions { jvmTarget = '17' }
+
+    sourceSets {
+        main {
+            jniLibs.srcDirs = ['libs', 'src/main/jniLibs']
+        }
     }
 
     packaging {
         resources.excludes += ['META-INF/*.kotlin_module']
     }
+}
+
+dependencies {
+    implementation 'androidx.core:core-ktx:1.12.0'
+
+    // ★ SparkChain 依赖（把 SparkChain.aar 放到 app/libs/ 目录）
+    implementation files('libs/SparkChain.aar')
 }
