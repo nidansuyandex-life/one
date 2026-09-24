@@ -1,0 +1,11 @@
+-keepclassmembers class * {
+    @android.webkit.JavascriptInterface <methods>;
+}
+-keepclassmembers class com.health.app.AndroidBridge {
+    public *;
+}
+-keepattributes JavascriptInterface
+
+-keep class com.iflytek.sparkchain.** { *; }
+-keep class com.iflytek.** { *; }
+-dontwarn com.iflytek.**
