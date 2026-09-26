@@ -2,12 +2,17 @@ package com.health.app
 
 import android.Manifest
 import android.app.Activity
+import android.app.AlertDialog
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
+import android.webkit.JsPromptResult
+import android.webkit.JsResult
+import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.EditText
 import com.iflytek.sparkchain.core.LogLvl
 import com.iflytek.sparkchain.core.SparkChain
 import com.iflytek.sparkchain.core.SparkChainConfig
@@ -22,9 +27,19 @@ class MainActivity : Activity() {
         setContentView(R.layout.activity_main)
 
         // 1. 初始化讯飞 SparkChain
-        initSparkChain()
+        try {
+            val config = SparkChainConfig.builder()
+            config.appID("4c627b59")
+                  .apiKey("2fbffaacd145309be7c024db99e9c7ef")
+                  .apiSecret("YzI1MDJmYWM0NTliNzNkMjI3NGIyM2Uz")
+            config.logLevel(LogLvl.VERBOSE.value)
+            val ret = SparkChain.getInst().init(applicationContext, config)
+            Log.d("Iflytek", "SparkChain init result = $ret")
+        } catch (e: Exception) {
+            Log.e("Iflytek", "SparkChain init failed", e)
+        }
 
-        // 2. WebView 配置
+        // 2. WebView 基础设置
         webView = findViewById(R.id.webview)
         webView.settings.apply {
             javaScriptEnabled = true
@@ -37,15 +52,62 @@ class MainActivity : Activity() {
             useWideViewPort = true
         }
 
-        // 3. 注入原生桥接
-        bridge = AndroidBridge(this, webView)
-        webView.addJavascriptInterface(bridge, "AndroidBridge")
+        // 3. WebViewClient
         webView.webViewClient = WebViewClient()
 
-        // 4. 加载页面
+        // 4. ★★★ WebChromeClient —— 让 alert/confirm/prompt 生效 ★★★
+        webView.webChromeClient = object : WebChromeClient() {
+
+            override fun onJsAlert(
+                view: WebView, url: String, message: String, result: JsResult
+            ): Boolean {
+                AlertDialog.Builder(view.context)
+                    .setMessage(message)
+                    .setPositiveButton("确定") { _, _ -> result.confirm() }
+                    .setCancelable(false)
+                    .show()
+                return true
+            }
+
+            override fun onJsConfirm(
+                view: WebView, url: String, message: String, result: JsResult
+            ): Boolean {
+                AlertDialog.Builder(view.context)
+                    .setMessage(message)
+                    .setPositiveButton("确定") { _, _ -> result.confirm() }
+                    .setNegativeButton("取消") { _, _ -> result.cancel() }
+                    .setCancelable(false)
+                    .show()
+                return true
+            }
+
+            override fun onJsPrompt(
+                view: WebView, url: String, message: String,
+                defaultValue: String?, result: JsPromptResult
+            ): Boolean {
+                val edit = EditText(view.context).apply {
+                    setText(defaultValue ?: "")
+                    setSelection(text.length)
+                }
+                AlertDialog.Builder(view.context)
+                    .setMessage(message)
+                    .setView(edit)
+                    .setPositiveButton("确定") { _, _ -> result.confirm(edit.text.toString()) }
+                    .setNegativeButton("取消") { _, _ -> result.cancel() }
+                    .setCancelable(false)
+                    .show()
+                return true
+            }
+        }
+
+        // 5. 注入原生桥接
+        bridge = AndroidBridge(this, webView)
+        webView.addJavascriptInterface(bridge, "AndroidBridge")
+
+        // 6. 加载页面
         webView.loadUrl("file:///android_asset/index.html")
 
-        // 5. 申请录音权限
+        // 7. 申请录音权限
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             val needed = mutableListOf<String>()
             if (checkSelfPermission(Manifest.permission.RECORD_AUDIO)
@@ -53,21 +115,6 @@ class MainActivity : Activity() {
                 needed.add(Manifest.permission.RECORD_AUDIO)
             }
             if (needed.isNotEmpty()) requestPermissions(needed.toTypedArray(), 1001)
-        }
-    }
-
-    private fun initSparkChain() {
-        try {
-            val config = SparkChainConfig.builder()
-            config.appID("4c627b59")
-                  .apiKey("2fbffaacd145309be7c024db99e9c7ef")
-                  .apiSecret("YzI1MDJmYWM0NTliNzNkMjI3NGIyM2Uz")
-            config.logLevel(LogLvl.VERBOSE.value)
-
-            val ret = SparkChain.getInst().init(applicationContext, config)
-            Log.d("Iflytek", "SparkChain init result = $ret")
-        } catch (e: Exception) {
-            Log.e("Iflytek", "SparkChain init failed", e)
         }
     }
 
