@@ -24,16 +24,15 @@ class MainActivity : Activity() {
 
     private lateinit var webView: WebView
     private lateinit var bridge: AndroidBridge
-
-    // ★ 用于保存文件选择器的回调
     private var fileChooserCallback: ValueCallback<Array<Uri>>? = null
     private val FILE_CHOOSER_REQUEST = 2001
+    private val PERM_REQUEST = 1001
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // 1. 初始化讯飞 SparkChain
+        // 1. 讯飞初始化
         try {
             val config = SparkChainConfig.builder()
             config.appID("4c627b59")
@@ -46,7 +45,7 @@ class MainActivity : Activity() {
             Log.e("Iflytek", "SparkChain init failed", e)
         }
 
-        // 2. WebView 基础设置
+        // 2. WebView
         webView = findViewById(R.id.webview)
         webView.settings.apply {
             javaScriptEnabled = true
@@ -58,106 +57,94 @@ class MainActivity : Activity() {
             loadWithOverviewMode = true
             useWideViewPort = true
         }
-
-        // 3. WebViewClient
         webView.webViewClient = WebViewClient()
 
-        // 4. ★★★ WebChromeClient：alert/confirm/prompt + 文件选择 ★★★
+        // 3. WebChromeClient
         webView.webChromeClient = object : WebChromeClient() {
-
-            override fun onJsAlert(
-                view: WebView, url: String, message: String, result: JsResult
-            ): Boolean {
+            override fun onJsAlert(view: WebView, url: String, message: String, result: JsResult): Boolean {
                 AlertDialog.Builder(view.context)
                     .setMessage(message)
                     .setPositiveButton("确定") { _, _ -> result.confirm() }
-                    .setCancelable(false)
-                    .show()
+                    .setCancelable(false).show()
                 return true
             }
-
-            override fun onJsConfirm(
-                view: WebView, url: String, message: String, result: JsResult
-            ): Boolean {
+            override fun onJsConfirm(view: WebView, url: String, message: String, result: JsResult): Boolean {
                 AlertDialog.Builder(view.context)
                     .setMessage(message)
                     .setPositiveButton("确定") { _, _ -> result.confirm() }
                     .setNegativeButton("取消") { _, _ -> result.cancel() }
-                    .setCancelable(false)
-                    .show()
+                    .setCancelable(false).show()
                 return true
             }
-
-            override fun onJsPrompt(
-                view: WebView, url: String, message: String,
-                defaultValue: String?, result: JsPromptResult
-            ): Boolean {
+            override fun onJsPrompt(view: WebView, url: String, message: String,
+                                    defaultValue: String?, result: JsPromptResult): Boolean {
                 val edit = EditText(view.context).apply {
-                    setText(defaultValue ?: "")
-                    setSelection(text.length)
+                    setText(defaultValue ?: ""); setSelection(text.length)
                 }
                 AlertDialog.Builder(view.context)
-                    .setMessage(message)
-                    .setView(edit)
+                    .setMessage(message).setView(edit)
                     .setPositiveButton("确定") { _, _ -> result.confirm(edit.text.toString()) }
                     .setNegativeButton("取消") { _, _ -> result.cancel() }
-                    .setCancelable(false)
-                    .show()
+                    .setCancelable(false).show()
                 return true
             }
-
-            // ★★★ 关键：让 <input type="file"> 能打开系统选择器 ★★★
             override fun onShowFileChooser(
                 webView: WebView,
                 filePathCallback: ValueCallback<Array<Uri>>,
                 fileChooserParams: FileChooserParams
             ): Boolean {
-                // 先取消上一次未完成的回调，避免卡住
                 fileChooserCallback?.onReceiveValue(null)
                 fileChooserCallback = filePathCallback
-
                 return try {
                     val intent = fileChooserParams.createIntent()
-                    // 允许选择图片（accept="image/*" 已由 html 提供）
                     intent.addCategory(Intent.CATEGORY_OPENABLE)
                     startActivityForResult(intent, FILE_CHOOSER_REQUEST)
                     true
                 } catch (e: Exception) {
-                    Log.e("WebView", "打开文件选择器失败", e)
-                    fileChooserCallback = null
-                    false
+                    Log.e("WebView", "file chooser failed", e)
+                    fileChooserCallback = null; false
                 }
             }
         }
 
-        // 5. 注入原生桥接
+        // 4. 桥接
         bridge = AndroidBridge(this, webView)
         webView.addJavascriptInterface(bridge, "AndroidBridge")
 
-        // 6. 加载页面
+        // 5. 加载页面
         webView.loadUrl("file:///android_asset/index.html")
 
-        // 7. 申请录音权限
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            val needed = mutableListOf<String>()
-            if (checkSelfPermission(Manifest.permission.RECORD_AUDIO)
+        // 6. ★ 启动久坐提醒
+        bridge.startSitReminder()
+
+        // 7. 权限申请
+        requestNeededPermissions()
+    }
+
+    private fun requestNeededPermissions() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return
+        val needed = mutableListOf<String>()
+        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO)
+            != PackageManager.PERMISSION_GRANTED) {
+            needed.add(Manifest.permission.RECORD_AUDIO)
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
                 != PackageManager.PERMISSION_GRANTED) {
-                needed.add(Manifest.permission.RECORD_AUDIO)
+                needed.add(Manifest.permission.POST_NOTIFICATIONS)
             }
-            if (needed.isNotEmpty()) requestPermissions(needed.toTypedArray(), 1001)
+        }
+        if (needed.isNotEmpty()) {
+            requestPermissions(needed.toTypedArray(), PERM_REQUEST)
         }
     }
 
-    // ★★★ 文件选择结果回传给 WebView ★★★
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-
         if (requestCode == FILE_CHOOSER_REQUEST) {
             val cb = fileChooserCallback ?: return
             fileChooserCallback = null
-
             if (resultCode == RESULT_OK && data != null) {
-                // 返回用户选择的文件 URI
                 val uris: Array<Uri>? = when {
                     data.data != null -> arrayOf(data.data!!)
                     data.clipData != null -> {
@@ -168,7 +155,6 @@ class MainActivity : Activity() {
                 }
                 cb.onReceiveValue(uris)
             } else {
-                // 用户取消
                 cb.onReceiveValue(null)
             }
         }
@@ -179,6 +165,17 @@ class MainActivity : Activity() {
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         Log.d("App", "perm result: ${grantResults.joinToString()}")
+    }
+
+    // ★ 更新前台/后台状态
+    override fun onResume() {
+        super.onResume()
+        if (::bridge.isInitialized) bridge.isActivityForeground = true
+    }
+
+    override fun onPause() {
+        if (::bridge.isInitialized) bridge.isActivityForeground = false
+        super.onPause()
     }
 
     override fun onDestroy() {

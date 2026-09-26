@@ -1417,19 +1417,19 @@ function prepareTransaction(text){
 /* ===== 语音识别（15 秒） ===== */
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 let recognition = null, isListening = false;
-const VOICE_DURATION = 15000;      // ★ 语音输入总时长：15 秒
-let voiceTimer = null;             // 15 秒自动结束计时器
-let voiceCountdown = null;         // 界面倒计时
-let voiceTranscript = '';          // 已确认的识别文本
-let voiceInterim = '';             // 临时识别文本
-let voiceActive = false;           // 是否在 15 秒监听窗口内
+const VOICE_DURATION = 15000;
+let voiceTimer = null;
+let voiceCountdown = null;
+let voiceTranscript = '';
+let voiceInterim = '';
+let voiceActive = false;
 
 if (SR) {
   recognition = new SR();
   recognition.lang = 'zh-CN';
   recognition.interimResults = true;
   recognition.maxAlternatives = 1;
-  recognition.continuous = true;   // ★ 连续识别，支持最长 15 秒
+  recognition.continuous = true;
 }
 
 function clearVoiceTimers(){
@@ -1469,13 +1469,11 @@ function showManualInput(msg){
   voiceActive = false;
 }
 
-/* ★★★ 关键改动：不再预判 isSpeechAvailable，直接调用 startVoice，
-      失败由原生 onNativeSpeechError 回调处理 ★★★ */
 function startVoice(){
   if (window.AndroidBridge && typeof AndroidBridge.startVoice === 'function') {
     try {
       AndroidBridge.startVoice();
-      beginVoiceWindow();     // 前端 15 秒倒计时照常走
+      beginVoiceWindow();
       return;
     } catch(e) {
       console.error('startVoice error', e);
@@ -1489,7 +1487,7 @@ function startVoice(){
     showManualInput('⚠️ 当前设备没有可用的语音识别服务<br>请使用下方【手动输入文字】记账');
     return;
   }
-  if (isListening) { stopVoiceInput(); return; }   // ★ 再点一次可提前结束
+  if (isListening) { stopVoiceInput(); return; }
   $('#asrTag').textContent = '聆听中';
   $('#micBtn').classList.add('listening');
   isListening = true;
@@ -1560,7 +1558,6 @@ if (recognition) {
   recognition.onend = () => {
     isListening = false;
     $('#micBtn').classList.remove('listening');
-    // ★ 仍在 15 秒窗口内且不是主动停止 → 尝试续听
     if (voiceActive && voiceTimer) {
       try {
         recognition.start();
@@ -2367,7 +2364,6 @@ function analyzeIngredients(name, ingrText, pKey){
   return { level, reasons, product:{ name, ingredients: ingrText, brand:'手动输入' } };
 }
 
-/* ★ 基础步骤都带 group 字段 */
 const SKIN_STATES = {
   stable: { key:'stable', label:'平稳', icon:'✅', desc:'皮肤状态稳定，维持现有流程即可。', tips:'保持节奏，注意防晒与睡眠。',
     morning: [
@@ -2438,7 +2434,6 @@ function applyProfileDraft(){
   setTimeout(() => { btn.textContent = oldText; }, 1200);
 }
 
-/* ★ 护肤流程：基础 + 自定义，自动按分组排序 */
 function renderSkin(){
   const s = SKIN_STATES[state.skinState];
   $('#skinOptions').innerHTML = Object.values(SKIN_STATES).map(v => `
@@ -2953,14 +2948,7 @@ function playBeep(){
   try { const ctx = new (window.AudioContext || window.webkitAudioContext)(); const o = ctx.createOscillator(), g = ctx.createGain(); o.connect(g); g.connect(ctx.destination); o.frequency.value = 880; o.type = 'sine'; g.gain.setValueAtTime(0.3, ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.8); o.start(); o.stop(ctx.currentTime + 0.8); } catch(e){}
 }
 
-/* ===== 久坐提醒 ===== */
-let lastReminder = 0;
-function checkSitReminder(){
-  const now = new Date();
-  const totalMin = now.getHours() * 60 + now.getMinutes();
-  if (totalMin < 510 || totalMin > 1020) return;
-  if (totalMin - lastReminder >= 30) { lastReminder = totalMin; showCenterTimer(90); }
-}
+/* ===== 久坐提醒（弹窗显示，交给原生 AndroidBridge 触发） ===== */
 function showCenterTimer(sec){
   const el = $('#centerTimer'); const num = $('#centerTimerNum');
   el.classList.add('show'); num.textContent = sec;
@@ -2972,6 +2960,8 @@ function showCenterTimer(sec){
   }, 1000);
   el.dataset.timer = t;
 }
+// ★ 暴露给原生调用
+window.showCenterTimer = showCenterTimer;
 
 /* ===== 设置 ===== */
 function renderSettingsBody(){
@@ -3086,7 +3076,7 @@ document.addEventListener('click', e => {
     renderSportAll(); renderCalendar(); renderAllTodo(); renderUndone();
     return;
   }
-  /* --- ★ 护肤：添加自定义步骤（含自动识别分组） --- */
+  /* --- 护肤：添加自定义步骤 --- */
   const addSkinStepBtn = e.target.closest('[data-add-skin-step]');
   if (addSkinStepBtn) {
     const phase = addSkinStepBtn.dataset.addSkinStep;
@@ -3118,7 +3108,7 @@ document.addEventListener('click', e => {
     renderSkin();
     return;
   }
-  /* --- ★ 护肤：删除自定义步骤 --- */
+  /* --- 护肤：删除自定义步骤 --- */
   const delSkinStepBtn = e.target.closest('[data-del-skin-step]');
   if (delSkinStepBtn) {
     try {
@@ -3554,7 +3544,9 @@ function init(){
   restoreScales();
   applyChecks();
 
-  setInterval(checkSitReminder, 30 * 1000);
+  // ★ 久坐提醒已由原生 AndroidBridge 接管（30 分钟定时 + 前台弹窗 / 后台通知）
+  // setInterval(checkSitReminder, 30 * 1000);
+
   setInterval(() => { cleanupOldChecks(); cleanupOldSets(); cleanupOldSportSessions(); }, 5 * 60 * 1000);
   setInterval(checkDayChange, 60 * 1000);
   setInterval(updateSportTimerText, 1000);
