@@ -406,7 +406,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue"
         <div class="pane active">
           <div class="mic-wrap">
             <button class="mic" id="micBtn">🎙️</button>
-            <p class="mic-hint" id="micHint">点击麦克风开始语音输入（最长 15 秒）</p>
+            <p class="mic-hint" id="micHint">点击麦克风开始语音输入（最长 15 秒，再按一次可提前结束）</p>
             <button class="btn-ghost" id="toggleManual" style="margin-top:12px;max-width:220px">⌨️ 手动输入文字</button>
             <div class="text-input-area" id="textInputArea">
               <input type="text" id="manualTxInput" placeholder="如：午餐 35 元 / 发工资 8000">
@@ -444,11 +444,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue"
               </div>
             </div>
           </div>
-          <div class="card"><div class="card-title">最近记录 <span class="muted">点击 ✕ 可删除</span></div><div id="recentTx"></div></div>
+          <div class="card"><div class="card-title">最近记录 <span class="muted">点击条目可编辑，点 ✕ 可删除</span></div><div id="recentTx"></div></div>
         </div>
         <div class="pane">
           <div class="balance"><div class="lab">本月支出</div><div class="big" id="monthExpense">¥ 0.00</div><div class="foot"><span id="monthIncome">收入 ¥ 0</span><span id="monthBalance">结余 ¥ 0</span></div></div>
-          <div class="card"><div class="card-title">今日明细 <span class="muted">点击 ✕ 可删除</span></div><div id="todayTx"></div></div>
+          <div class="card"><div class="card-title">今日明细 <span class="muted">点击条目可编辑</span></div><div id="todayTx"></div></div>
           <div class="card"><div class="card-title">分类占比</div><div id="categoryChart"></div></div>
         </div>
         <div class="pane">
@@ -746,7 +746,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue"
       <div class="dim-row"><span class="lb">事项</span><input type="text" id="todoTitle" placeholder="如 团队周会" style="width:150px;text-align:left"></div>
       <div class="dim-row"><span class="lb">备注</span><input type="text" id="todoDesc" placeholder="可选" style="width:150px;text-align:left"></div>
     </div>
-    <div class="sheet-foot"><button class="btn-primary" id="saveTodoBtn">保存待办</button></div>
+    <div class="sheet-foot"><button class="btn-primary" id="saveTodoBtn" style="color:#1B1F2A">保存待办</button></div>
   </div>
 
   <div class="sheet-mask" id="pickMask"></div>
@@ -759,26 +759,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue"
   <div class="sheet" id="prodSheet">
     <div class="sheet-head"><h2 id="prodSheetTitle">选择护肤产品</h2><button class="close" id="closeProd">✕</button></div>
     <div class="sheet-body">
-      <div class="cat-tabs" style="margin-bottom:12px">
-        <button class="cat-tab active" data-prod-tab="manual">手动输入</button>
-        <button class="cat-tab" data-prod-tab="lib">常见产品库</button>
-      </div>
-      <div id="prodManualTab">
-        <div style="font-size:12.5px;color:#5A6175;line-height:1.6;margin-bottom:10px">输入产品名称和成分表，系统会自动分析是否适合。</div>
-        <input type="text" class="product-search-input" id="prodManualName" placeholder="产品名称，如 XXX 精华">
-        <textarea class="product-textarea" id="prodManualIngr" placeholder="粘贴或输入成分表…"></textarea>
-        <label class="upload" for="ingrImgUpload" style="min-height:60px;padding:14px;margin-bottom:10px;border-style:solid;border-color:#E3E6EF">
-          <span style="font-size:11.5px">📷 上传成分表截图（可选）</span>
-          <input type="file" id="ingrImgUpload" accept="image/*">
-          <img id="ingrImgPreview" style="display:none;max-height:140px;margin-top:8px">
-        </label>
-        <button class="btn-primary" id="analyzeManualBtn">分析并选用</button>
-        <div id="manualAnalysisResult"></div>
-      </div>
-      <div id="prodLibTab" style="display:none">
-        <input type="text" class="product-search-input" id="prodSearch" placeholder="搜索常见产品…">
-        <div id="prodResults"></div>
-      </div>
+      <div style="font-size:12.5px;color:#5A6175;line-height:1.6;margin-bottom:10px">输入产品名称和成分表，系统会自动分析是否适合。</div>
+      <input type="text" class="product-search-input" id="prodManualName" placeholder="产品名称，如 XXX 精华">
+      <textarea class="product-textarea" id="prodManualIngr" placeholder="粘贴或输入成分表…"></textarea>
+      <label class="upload" for="ingrImgUpload" style="min-height:60px;padding:14px;margin-bottom:10px;border-style:solid;border-color:#E3E6EF">
+        <span style="font-size:11.5px">📷 上传成分表截图（可选）</span>
+        <input type="file" id="ingrImgUpload" accept="image/*">
+        <img id="ingrImgPreview" style="display:none;max-height:140px;margin-top:8px">
+      </label>
+      <button class="btn-primary" id="analyzeManualBtn" style="color:#1B1F2A">分析并选用</button>
+      <div id="manualAnalysisResult"></div>
     </div>
   </div>
 
@@ -981,7 +971,6 @@ function getCustomSkinSteps(){
 }
 function saveCustomSkinSteps(v){ Store.save('customSkinSteps', v); }
 
-/* ★ 护肤步骤分组与自动排序 */
 const SKIN_STEP_ORDER = [
   { key:'clean',   label:'洁面/卸妆', words:['洁面','卸妆','洗面','清洁'] },
   { key:'toner',   label:'爽肤水',    words:['爽肤','化妆水','喷雾','水乳','toner'] },
@@ -1270,26 +1259,6 @@ const state = {
   pickingSkinStep: null
 };
 
-const INGREDIENT_DB = {
-  '理肤泉B5修复霜': { brand:'理肤泉 La Roche-Posay', ingredients:'水、甘油、辛酸/癸酸甘油三酯、乳木果油、PEG-100 硬脂酸酯、硬脂酸、鲸蜡醇、泛醇、生育酚、积雪草苷、氢氧化钠、辛甘醇、苯氧乙醇、乙基己基甘油' },
-  '理肤泉B5': { brand:'理肤泉 La Roche-Posay', ingredients:'水、甘油、辛酸/癸酸甘油三酯、乳木果油、PEG-100 硬脂酸酯、硬脂酸、鲸蜡醇、泛醇、生育酚、积雪草苷、氢氧化钠、辛甘醇、苯氧乙醇、乙基己基甘油' },
-  'CeraVe修护乳': { brand:'CeraVe', ingredients:'水、甘油、鲸蜡硬脂醇、辛酸/癸酸甘油三酯、神经酰胺 NP、神经酰胺 AP、神经酰胺 EOP、透明质酸钠、胆固醇、烟酰胺、卡波姆、黄原胶、生育酚、苯氧乙醇' },
-  'CeraVe修复': { brand:'CeraVe', ingredients:'水、甘油、鲸蜡硬脂醇、辛酸/癸酸甘油三酯、神经酰胺 NP、神经酰胺 AP、神经酰胺 EOP、透明质酸钠、胆固醇、烟酰胺、卡波姆、黄原胶、生育酚、苯氧乙醇' },
-  'CeraVe': { brand:'CeraVe', ingredients:'水、甘油、鲸蜡硬脂醇、辛酸/癸酸甘油三酯、神经酰胺 NP、神经酰胺 AP、神经酰胺 EOP、透明质酸钠、胆固醇、烟酰胺、卡波姆、黄原胶、生育酚、苯氧乙醇' },
-  'JOHN乙基化维C': { brand:'JOHN', ingredients:'水、3-O-乙基抗坏血酸（10%）、甘油、丙二醇、1,2-己二醇、苯氧乙醇、乙基己基甘油' },
-  '乙基化维C': { brand:'JOHN', ingredients:'水、3-O-乙基抗坏血酸（10%）、甘油、丙二醇、1,2-己二醇、苯氧乙醇、乙基己基甘油' },
-  'JOHN烟酰胺': { brand:'JOHN', ingredients:'水、烟酰胺（7%）、甘油、戊二醇、1,2-己二醇、苯氧乙醇、乙基己基甘油' },
-  'JOHN壬二酸': { brand:'JOHN', ingredients:'水、壬二酸（10%）、甘油、辛酸/癸酸甘油三酯、鲸蜡硬脂醇、聚二甲基硅氧烷、苯氧乙醇' },
-  '修丽可CE精华': { brand:'修丽可 SkinCeuticals', ingredients:'水、抗坏血酸（15%）、生育酚（1%）、阿魏酸（0.5%）、丙二醇、苯氧乙醇' },
-  '雅诗兰黛小棕瓶': { brand:'雅诗兰黛', ingredients:'水、双-PEG-18 甲基醚二甲基硅烷、二裂酵母发酵产物溶胞物、聚乙二醇-75、辛酸/癸酸甘油三酯、丁二醇、1,2-戊二醇、乳酸杆菌发酵产物、透明质酸钠、苯氧乙醇' },
-  '兰蔻小黑瓶': { brand:'兰蔻', ingredients:'水、二裂酵母发酵产物溶胞物、甘油、变性乙醇、丁二醇、双-PEG-18 甲基醚二甲基硅烷、透明质酸钠、苯氧乙醇' },
-  '薇诺娜舒敏保湿霜': { brand:'薇诺娜', ingredients:'水、甘油、角鲨烷、辛酸/癸酸甘油三酯、鲸蜡硬脂醇、青刺果油、马齿苋提取物、透明质酸钠、β-葡聚糖、神经酰胺、泛醇、苯氧乙醇' },
-  '玉泽皮肤屏障修护乳': { brand:'玉泽', ingredients:'水、甘油、辛酸/癸酸甘油三酯、鲸蜡硬脂醇、神经酰胺 NP、神经酰胺 NS/神经酰胺 NG、角鲨烷、牛油果树果脂、透明质酸钠、苯氧乙醇' },
-  '可复美类人胶原蛋白': { brand:'可复美', ingredients:'水、重组胶原蛋白、甘油、透明质酸钠、海藻糖、卡波姆、苯氧乙醇' },
-  'SK-II神仙水': { brand:'SK-II', ingredients:'水、半乳糖酵母样菌发酵产物滤液、丁二醇、戊二醇、水杨酸钠、苯甲酸钠、羟苯甲酯' },
-  '珂润润浸保湿霜': { brand:'珂润 Curel', ingredients:'水、甘油、鲸蜡硬脂醇、环聚二甲基硅氧烷、角鲨烷、神经酰胺功能成分、丁二醇、苯氧乙醇' }
-};
-
 /* ===== 日历 ===== */
 function buildCalendarFromPlans(){
   const data = {};
@@ -1414,10 +1383,15 @@ function prepareTransaction(text){
   renderTxEditor();
 }
 
-/* ===== 语音识别（15 秒） ===== */
+/* ===== 语音识别（时长从设置读取） ===== */
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 let recognition = null, isListening = false;
-const VOICE_DURATION = 15000;
+const VOICE_DURATION = (function(){
+  try {
+    const v = window.__appStorageGet ? window.__appStorageGet('app_setting_voice_duration') : null;
+    return v ? parseInt(v) * 1000 : 15000;
+  } catch(e) { return 15000; }
+})();
 let voiceTimer = null;
 let voiceCountdown = null;
 let voiceTranscript = '';
@@ -1449,11 +1423,11 @@ function beginVoiceWindow(){
   clearVoiceTimers();
   let left = Math.round(VOICE_DURATION / 1000);
   const h = $('#micHint');
-  if (h) h.textContent = `正在聆听…（剩余 ${left} 秒）`;
+  if (h) h.textContent = `正在聆听…（剩余 ${left} 秒，再按一次可结束）`;
   voiceCountdown = setInterval(() => {
     left--;
     if (left <= 0) { clearInterval(voiceCountdown); voiceCountdown = null; return; }
-    if (h) h.textContent = `正在聆听…（剩余 ${left} 秒）`;
+    if (h) h.textContent = `正在聆听…（剩余 ${left} 秒，再按一次可结束）`;
   }, 1000);
   voiceTimer = setTimeout(() => { stopVoiceInput(); }, VOICE_DURATION);
 }
@@ -1471,9 +1445,28 @@ function showManualInput(msg){
 
 function startVoice(){
   if (window.AndroidBridge && typeof AndroidBridge.startVoice === 'function') {
+    // ★ 已在录音 → 再按一次结束
+    if (window.__voiceRecording) {
+      try { AndroidBridge.stopVoice(); } catch(e){}
+      window.__voiceRecording = false;
+      clearTimeout(window.__voiceAutoStopTimer);
+      document.querySelector('#micBtn').classList.remove('listening');
+      document.querySelector('#micHint').textContent = '已结束，识别中…';
+      return;
+    }
     try {
       AndroidBridge.startVoice();
+      // ★ 标记录音中
+      window.__voiceRecording = true;
       beginVoiceWindow();
+      // ★ 兜底：15 秒后强制停止
+      window.__voiceAutoStopTimer = setTimeout(() => {
+        if (window.__voiceRecording) {
+          window.__voiceRecording = false;
+          try { AndroidBridge.stopVoice(); } catch(e){}
+          const mb = document.querySelector('#micBtn'); if (mb) mb.classList.remove('listening');
+        }
+      }, VOICE_DURATION);
       return;
     } catch(e) {
       console.error('startVoice error', e);
@@ -1505,6 +1498,8 @@ function startVoice(){
 }
 window.onNativeSpeechResult = function(text){
   clearVoiceTimers();
+  window.__voiceRecording = false;
+  clearTimeout(window.__voiceAutoStopTimer);
   voiceActive = false;
   isListening = false;
   const b = document.querySelector('#micBtn'); if (b) b.classList.remove('listening');
@@ -1512,10 +1507,12 @@ window.onNativeSpeechResult = function(text){
 };
 window.onNativeSpeechError = function(msg){
   const m = String(msg || '');
+  clearVoiceTimers();
+  window.__voiceRecording = false;
+  clearTimeout(window.__voiceAutoStopTimer);
   const b = document.querySelector('#micBtn'); if (b) b.classList.remove('listening');
   isListening = false;
   voiceActive = false;
-  clearVoiceTimers();
   if (/没有可用|不可用|not available|no service|未安装|不支持|not supported|service/i.test(m)) {
     const t = document.querySelector('#asrTag'); if (t) t.textContent = '不可用';
     showManualInput('⚠️ 当前手机没有可用的系统语音识别服务<br>请使用下方【手动输入文字】记账');
@@ -2498,10 +2495,6 @@ function openProductSheet(stepId){
   $('#ingrImgPreview').style.display = 'none';
   $('#ingrImgPreview').removeAttribute('src');
   $('#manualAnalysisResult').innerHTML = '';
-  $$('[data-prod-tab]').forEach(t => t.classList.remove('active'));
-  document.querySelector('[data-prod-tab="manual"]').classList.add('active');
-  $('#prodManualTab').style.display = 'block';
-  $('#prodLibTab').style.display = 'none';
   $('#prodSheet').classList.add('show');
   $('#prodMask').classList.add('show');
 }
@@ -2509,23 +2502,6 @@ function closeProductSheet(){
   $('#prodSheet').classList.remove('show');
   $('#prodMask').classList.remove('show');
   state.pickingSkinStep = null;
-}
-function renderProductResults(q){
-  const query = (q || '').trim().toLowerCase();
-  let entries = Object.entries(INGREDIENT_DB);
-  if (query) entries = entries.filter(([k]) => k.toLowerCase().includes(query) || INGREDIENT_DB[k].brand.toLowerCase().includes(query));
-  const seen = new Set();
-  const unique = [];
-  entries.forEach(([k, v]) => { if (!seen.has(v.ingredients)) { seen.add(v.ingredients); unique.push([k, v]); } });
-  let html = '<div style="font-size:12px;color:#8A90A2;margin-bottom:8px">点击产品即可选用</div>';
-  if (!unique.length) html += '<p class="tip" style="color:#8A90A2;padding:12px 0">没有匹配的产品</p>';
-  else html += unique.slice(0, 30).map(([name, v]) => `
-    <div style="background:#F7F8FC;border-radius:12px;padding:12px;margin-bottom:10px;cursor:pointer" data-pick-prod="${encodeURIComponent(name)}">
-      <div style="font-size:13.5px;font-weight:700;color:#1B1F2A">${name}</div>
-      <div style="font-size:11px;color:#8A90A2;margin-top:3px">${v.brand}</div>
-      <div style="font-size:11.5px;color:#7A8196;margin-top:6px;line-height:1.5">成分：${v.ingredients.slice(0, 60)}${v.ingredients.length > 60 ? '…' : ''}</div>
-    </div>`).join('');
-  $('#prodResults').innerHTML = html;
 }
 function saveSkinProducts(){ saveRaw('skinProducts', state.skinProducts); }
 
@@ -2960,7 +2936,6 @@ function showCenterTimer(sec){
   }, 1000);
   el.dataset.timer = t;
 }
-// ★ 暴露给原生调用
 window.showCenterTimer = showCenterTimer;
 
 /* ===== 设置 ===== */
@@ -3057,11 +3032,9 @@ $$('.subnav').forEach(nav => {
 });
 
 document.addEventListener('click', e => {
-  /* --- 运动打卡按钮 --- */
   if (e.target.closest('#startSportBtn')) { startSportSession(); return; }
   if (e.target.closest('#endSportBtn')) { endSportSession(); return; }
   if (e.target.closest('#resetSportBtn')) { resetSportSession(); return; }
-  /* --- 计划开始日期快捷按钮 --- */
   if (e.target.closest('#resetPlanStartBtn')) {
     const t = new Date(); t.setHours(0,0,0,0);
     setPlanStart(t);
@@ -3076,7 +3049,6 @@ document.addEventListener('click', e => {
     renderSportAll(); renderCalendar(); renderAllTodo(); renderUndone();
     return;
   }
-  /* --- 护肤：添加自定义步骤 --- */
   const addSkinStepBtn = e.target.closest('[data-add-skin-step]');
   if (addSkinStepBtn) {
     const phase = addSkinStepBtn.dataset.addSkinStep;
@@ -3108,7 +3080,6 @@ document.addEventListener('click', e => {
     renderSkin();
     return;
   }
-  /* --- 护肤：删除自定义步骤 --- */
   const delSkinStepBtn = e.target.closest('[data-del-skin-step]');
   if (delSkinStepBtn) {
     try {
@@ -3122,7 +3093,6 @@ document.addEventListener('click', e => {
     } catch(err){ console.error(err); }
     return;
   }
-  /* --- 待办勾选 --- */
   const toggleEl = e.target.closest('[data-toggle-todo]');
   if (toggleEl && !e.target.closest('[data-del-todo]')) {
     try {
@@ -3146,43 +3116,19 @@ document.addEventListener('click', e => {
     } catch(err){ console.error(err); }
     return;
   }
-  /* --- 抠图 / 裁剪 --- */
   if (e.target.closest('#cancelBg')) { closeBgPanel(); return; }
   if (e.target.closest('#applyBg')) { applyBg(); return; }
   if (e.target.closest('#applyCrop')) { applyCrop(); return; }
   if (e.target.closest('#cancelCrop')) { closeCropPanel(); return; }
-  /* --- 肤质档案 --- */
   if (e.target.closest('#confirmProfileBtn')) { applyProfileDraft(); return; }
-  /* --- 设置 --- */
   if (e.target.closest('[data-open-settings]')) { openSettings(); return; }
   if (e.target.closest('#closeSettings') || e.target.closest('#settingsMask')) { closeSettings(); return; }
   if (e.target.closest('#saveSettings')) { saveSettings(); return; }
-  /* --- 新建待办 --- */
   if (e.target.closest('#newTodoHero')) { openTodoSheet(); return; }
   if (e.target.closest('#closeTodo') || e.target.closest('#todoMask')) { closeTodoSheet(); return; }
   if (e.target.closest('#saveTodoBtn')) { saveTodo(); return; }
-  /* --- 弹窗 --- */
   if (e.target.closest('#closePick') || e.target.closest('#pickMask')) { closePickSheet(); return; }
   if (e.target.closest('#closeProd') || e.target.closest('#prodMask')) { closeProductSheet(); return; }
-  const prodTab = e.target.closest('[data-prod-tab]');
-  if (prodTab) {
-    $$('[data-prod-tab]').forEach(t => t.classList.remove('active'));
-    prodTab.classList.add('active');
-    if (prodTab.dataset.prodTab === 'lib') { $('#prodLibTab').style.display = 'block'; $('#prodManualTab').style.display = 'none'; renderProductResults(''); }
-    else { $('#prodLibTab').style.display = 'none'; $('#prodManualTab').style.display = 'block'; }
-    return;
-  }
-  const pickProdItem = e.target.closest('[data-pick-prod]');
-  if (pickProdItem) {
-    const name = decodeURIComponent(pickProdItem.dataset.pickProd);
-    const stepId = state.pickingSkinStep;
-    if (stepId) {
-      const info = INGREDIENT_DB[name];
-      state.skinProducts[stepId] = { key:null, name, ingredients: info.ingredients, brand: info.brand };
-      saveSkinProducts(); closeProductSheet(); renderSkin();
-    }
-    return;
-  }
   if (e.target.closest('#analyzeManualBtn')) {
     const name = $('#prodManualName').value.trim();
     const ingr = $('#prodManualIngr').value.trim();
@@ -3198,7 +3144,6 @@ document.addEventListener('click', e => {
     }
     return;
   }
-  /* --- 记账：类型/分类/确认/取消 --- */
   const txType = e.target.closest('[data-txtype]');
   if (txType && state.pendingTx) {
     state.pendingTx.type = txType.dataset.txtype;
@@ -3420,7 +3365,6 @@ document.addEventListener('click', e => {
   }
 });
 
-/* change 事件：计划开始日期 */
 document.addEventListener('change', e => {
   if (e.target.id === 'planStartInput') {
     const v = e.target.value;
@@ -3448,7 +3392,6 @@ document.addEventListener('input', e => {
   if (id === 'editColor') closet.color = e.target.value;
   if (id === 'editSeason') closet.season = e.target.value;
   if (id === 'editOccasion') closet.occasion = e.target.value;
-  if (id === 'prodSearch') renderProductResults(e.target.value);
   const gk = e.target.dataset.gkey;
   if (gk) { const v = parseFloat(e.target.value); closet.garment[gk] = isNaN(v) ? null : v; renderFit(); }
 });
@@ -3544,14 +3487,134 @@ function init(){
   restoreScales();
   applyChecks();
 
-  // ★ 久坐提醒已由原生 AndroidBridge 接管（30 分钟定时 + 前台弹窗 / 后台通知）
-  // setInterval(checkSitReminder, 30 * 1000);
-
   setInterval(() => { cleanupOldChecks(); cleanupOldSets(); cleanupOldSportSessions(); }, 5 * 60 * 1000);
   setInterval(checkDayChange, 60 * 1000);
   setInterval(updateSportTimerText, 1000);
 }
 init();
+
+/* ========== 增强补丁 v3.0：应用设置 / 崩溃日志 / 备份提醒 ========== */
+(function(){
+  if (window.__enhancedV3) return; window.__enhancedV3 = true;
+
+  function getSetting(key, def){
+    try { const v = window.__appStorageGet('app_setting_'+key); return v===null?def:JSON.parse(v); }
+    catch(e){ return def; }
+  }
+  function saveSetting(key, val){
+    window.__appStorageSet('app_setting_'+key, JSON.stringify(val));
+  }
+  window.getAppSetting = getSetting;
+  window.saveAppSetting = saveSetting;
+
+  const SEL_CSS = 'width:90px;border:1.5px solid #E3E6EF;border-radius:10px;padding:8px 10px;font-family:inherit;font-size:14px;font-weight:600;text-align:right;color:#1B1F2A;background:#fff;outline:none';
+  function injectAppSettings(){
+    const b = document.getElementById('settingsBody');
+    if (!b || document.getElementById('appSettingsSection')) return;
+    const sit = getSetting('sit_reminder', true);
+    const notif = getSetting('notification', true);
+    const vd = getSetting('voice_duration', 15);
+    const sport = getSetting('sport_timeout', true);
+    const d = document.createElement('div');
+    d.id = 'appSettingsSection';
+    d.style.cssText = 'margin-top:20px;padding-top:16px;border-top:1px solid #EDEFF5';
+    d.innerHTML =
+      '<div class="gt" style="font-size:12px;font-weight:700;color:#8A90A2;letter-spacing:.5px;margin:14px 0 4px">应用设置</div>' +
+      '<div class="set-row"><span class="lb">久坐提醒</span>' +
+        '<select id="setSitReminder" style="' + SEL_CSS + '">' +
+        '<option value="1"' + (sit?' selected':'') + '>开</option>' +
+        '<option value="0"' + (!sit?' selected':'') + '>关</option></select></div>' +
+      '<div class="set-row"><span class="lb">后台通知</span>' +
+        '<select id="setNotification" style="' + SEL_CSS + '">' +
+        '<option value="1"' + (notif?' selected':'') + '>开</option>' +
+        '<option value="0"' + (!notif?' selected':'') + '>关</option></select></div>' +
+      '<div class="set-row"><span class="lb">语音时长</span>' +
+        '<select id="setVoiceDuration" style="' + SEL_CSS + '">' +
+        '<option value="10"' + (vd==10?' selected':'') + '>10 秒</option>' +
+        '<option value="15"' + (vd==15?' selected':'') + '>15 秒</option>' +
+        '<option value="20"' + (vd==20?' selected':'') + '>20 秒</option></select></div>' +
+      '<div class="set-row"><span class="lb">训练超时提醒</span>' +
+        '<select id="setSportTimeout" style="' + SEL_CSS + '">' +
+        '<option value="1"' + (sport?' selected':'') + '>开</option>' +
+        '<option value="0"' + (!sport?' selected':'') + '>关</option></select></div>' +
+      '<p style="font-size:11.5px;color:#8A90A2;margin-top:8px;line-height:1.6">语音时长修改后需重启 App 生效。其他项立即生效。</p>';
+    b.appendChild(d);
+    d.addEventListener('change', function(e){
+      const id = e.target.id;
+      if (id === 'setSitReminder') saveSetting('sit_reminder', e.target.value === '1');
+      else if (id === 'setNotification') saveSetting('notification', e.target.value === '1');
+      else if (id === 'setVoiceDuration') {
+        saveSetting('voice_duration', parseInt(e.target.value));
+        alert('语音时长已保存，下次打开 App 生效');
+      }
+      else if (id === 'setSportTimeout') saveSetting('sport_timeout', e.target.value === '1');
+    });
+  }
+
+  function checkCrashLog(){
+    try {
+      const crash = window.__appStorageGet('last_crash');
+      if (!crash) return;
+      setTimeout(function(){
+        if (confirm('上次运行出现异常。是否查看详情？\n（查看后自动清除记录）')) {
+          alert('异常信息：\n\n' + crash.slice(0, 800));
+        }
+        window.__appStorageRemove('last_crash');
+      }, 2500);
+    } catch(e){}
+  }
+
+  function checkBackupReminder(){
+    try {
+      const last = parseInt(window.__appStorageGet('lastBackupAt') || '0');
+      const first = parseInt(window.__appStorageGet('firstUseAt') || '0');
+      const now = Date.now();
+      if (!first) { window.__appStorageSet('firstUseAt', String(now)); return; }
+      if (now - first < 3 * 86400000) return;
+      if (last > 0 && now - last < 30 * 86400000) return;
+      setTimeout(function(){
+        if (confirm('已超过 30 天未备份数据。\n\n手机丢失或卸载 App 会导致数据全部丢失。\n\n是否现在导出一份 JSON 备份？')) {
+          const btn = document.getElementById('exportDataBtn');
+          if (btn) btn.click();
+          else alert('请到「设置 → 数据备份」里手动导出');
+        }
+      }, 3500);
+    } catch(e){}
+  }
+
+  setInterval(function(){
+    if (typeof getSportSession !== 'function') return;
+    if (!getSetting('sport_timeout', true)) return;
+    const s = getSportSession();
+    if (!s || s.endTs) { window.__sportWarned = false; return; }
+    if (Date.now() - s.startTs > 2 * 3600 * 1000 && !window.__sportWarned) {
+      window.__sportWarned = true;
+      if (confirm('训练已超过 2 小时，是否结束打卡？')) {
+        if (typeof endSportSession === 'function') endSportSession();
+      }
+    }
+  }, 5 * 60 * 1000);
+
+  document.addEventListener('click', function(e){
+    if (e.target.closest('#exportDataBtn')) {
+      setTimeout(function(){
+        window.__appStorageSet('lastBackupAt', String(Date.now()));
+      }, 500);
+    }
+  }, true);
+
+  setTimeout(function(){
+    injectAppSettings();
+    checkCrashLog();
+    checkBackupReminder();
+  }, 800);
+
+  document.addEventListener('click', function(e){
+    if (e.target.closest('[data-open-settings]')) setTimeout(injectAppSettings, 150);
+  }, true);
+
+  console.log('[Enhanced v3.0] 应用设置 / 崩溃日志 / 备份提醒 已加载');
+})();
 </script>
 </body>
 </html>
