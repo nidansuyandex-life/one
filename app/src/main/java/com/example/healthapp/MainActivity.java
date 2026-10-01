@@ -22,9 +22,6 @@ import android.webkit.WebViewClient;
 import android.widget.FrameLayout;
 import android.widget.Toast;
 
-import java.io.File;
-import java.io.FileOutputStream;
-import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
@@ -47,13 +44,9 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // 1. 创建通知渠道
         NotificationHelper.createChannel(this);
-
-        // 2. 请求权限
         requestPermsIfNeeded();
 
-        // 3. 首次启动时默认打开久坐+备份提醒
         SharedPreferences sp = getSharedPreferences(PREFS, MODE_PRIVATE);
         if (!sp.contains("sit_reminder")) {
             sp.edit().putBoolean("sit_reminder", true).putBoolean("backup_reminder", true).apply();
@@ -61,7 +54,6 @@ public class MainActivity extends Activity {
         if (sp.getBoolean("sit_reminder", true)) NotificationHelper.scheduleSitReminder(this);
         if (sp.getBoolean("backup_reminder", true)) NotificationHelper.scheduleBackupReminder(this);
 
-        // 4. WebView
         FrameLayout container = new FrameLayout(this);
         container.setLayoutParams(new ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
@@ -161,39 +153,38 @@ public class MainActivity extends Activity {
             }
 
             /**
-             * 手动导出备份：写入 exports/ 子目录，弹 Toast 提示路径。
-             * 前端调用：AndroidBridge.saveBackup(jsonString)
+             * 手动导出到系统「下载」目录，用户可在文件管理器直接找到。
              */
             @JavascriptInterface
             public void saveBackup(String json) {
+                if (backupHelper == null) {
+                    runOnUiThread(() -> Toast.makeText(MainActivity.this,
+                            "备份服务未初始化", Toast.LENGTH_LONG).show());
+                    return;
+                }
                 try {
-                    File base = getExternalFilesDir(null);
-                    if (base == null) base = getFilesDir();
-                    File dir = new File(base, "exports");
-                    if (!dir.exists()) dir.mkdirs();
+                    String date = new SimpleDateFormat("yyyy-MM-dd_HHmmss", Locale.US)
+                            .format(new Date());
+                    String filename = "健康生活备份_" + date + ".json";
+                    final String displayPath = backupHelper.saveToDownloads(json, filename);
 
-                    String date = new SimpleDateFormat("yyyy-MM-dd_HHmmss", Locale.US).format(new Date());
-                    File f = new File(dir, "健康生活备份_" + date + ".json");
-
-                    FileOutputStream fos = new FileOutputStream(f);
-                    fos.write(json.getBytes(StandardCharsets.UTF_8));
-                    fos.close();
-
-                    final String path = f.getAbsolutePath();
-                    Log.d(TAG, "backup saved to " + path);
-                    runOnUiThread(() -> Toast.makeText(
-                            MainActivity.this,
-                            "已保存到：\n" + path,
-                            Toast.LENGTH_LONG
-                    ).show());
+                    runOnUiThread(() -> {
+                        if (displayPath == null || displayPath.isEmpty()) {
+                            Toast.makeText(MainActivity.this,
+                                    "保存失败，请检查存储权限",
+                                    Toast.LENGTH_LONG).show();
+                        } else {
+                            Toast.makeText(MainActivity.this,
+                                    "✅ 已保存到：「" + displayPath + "」\n" +
+                                    "打开系统「文件」App → 下载 即可找到",
+                                    Toast.LENGTH_LONG).show();
+                        }
+                    });
                 } catch (Exception e) {
                     Log.e(TAG, "saveBackup failed", e);
                     final String msg = e.getMessage() == null ? "未知错误" : e.getMessage();
-                    runOnUiThread(() -> Toast.makeText(
-                            MainActivity.this,
-                            "保存失败：" + msg,
-                            Toast.LENGTH_LONG
-                    ).show());
+                    runOnUiThread(() -> Toast.makeText(MainActivity.this,
+                            "保存失败：" + msg, Toast.LENGTH_LONG).show());
                 }
             }
         }, "AndroidBridge");
@@ -211,6 +202,10 @@ public class MainActivity extends Activity {
             if (Build.VERSION.SDK_INT >= 33 &&
                 checkSelfPermission("android.permission.POST_NOTIFICATIONS") != PackageManager.PERMISSION_GRANTED) {
                 need.add("android.permission.POST_NOTIFICATIONS");
+            }
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q &&
+                checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+                need.add(Manifest.permission.WRITE_EXTERNAL_STORAGE);
             }
             if (!need.isEmpty()) {
                 requestPermissions(need.toArray(new String[0]), REQ_PERMS);
