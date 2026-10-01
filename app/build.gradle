@@ -1,26 +1,23 @@
 plugins {
     id 'com.android.application'
-    id 'org.jetbrains.kotlin.android'
 }
 
 android {
-    namespace 'com.health.app'
+    namespace 'com.example.healthapp'
     compileSdk 34
 
     defaultConfig {
-        applicationId "com.health.app"
-        minSdk 24
+        applicationId "com.example.healthapp"
+        minSdk 21
         targetSdk 34
         versionCode 1
         versionName "1.0"
     }
 
     buildTypes {
-        debug { minifyEnabled false }
         release {
             minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'),
-                          'proguard-rules.pro'
+            signingConfig signingConfigs.debug
         }
     }
 
@@ -29,16 +26,14 @@ android {
         targetCompatibility JavaVersion.VERSION_17
     }
 
-    kotlinOptions { jvmTarget = '17' }
-
-    packaging {
-        resources.excludes += ['META-INF/*.kotlin_module']
+    packagingOptions {
+        resources {
+            excludes += ['META-INF/DEPENDENCIES', 'META-INF/LICENSE', 'META-INF/LICENSE.txt',
+                         'META-INF/NOTICE', 'META-INF/NOTICE.txt']
+        }
     }
 }
 
 dependencies {
-    implementation 'androidx.core:core-ktx:1.12.0'
-    implementation files('libs/SparkChain.aar')
-    implementation files('libs/Codec.aar')
-    implementation 'com.google.code.gson:gson:2.8.8'
+    implementation 'com.squareup.okhttp3:okhttp:4.12.0'
 }
