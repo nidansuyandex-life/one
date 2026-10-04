@@ -1,26 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.example.healthapp">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- 联网 -->
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
-
-    <!-- 定位（运行时会再弹框请求） -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
-
-    <!-- 通知（久坐提醒会用到） -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <uses-permission android:name="android.permission.VIBRATE"/>
-
-    <!-- 录音（语音记账用） -->
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
 
     <application
         android:allowBackup="true"
         android:label="健康生活"
-        android:theme="@style/Theme.AppCompat.Light.NoActionBar"
+        android:theme="@android:style/Theme.Material.Light.NoActionBar"
         android:usesCleartextTraffic="true">
 
         <activity
