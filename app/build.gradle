@@ -28,5 +28,5 @@ android {
 }
 
 dependencies {
-    // 无 androidx 依赖，使用 Android 系统原生 API
+    implementation 'com.squareup.okhttp3:okhttp:4.12.0'
 }
