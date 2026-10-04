@@ -27,10 +27,7 @@ public class WeatherHelper {
     private static final String TAG = "WeatherHelper";
     private static final int REQ_LOCATION = 1001;
 
-    /** 和风天气 API KEY */
     private static final String QWEATHER_KEY = "c623ca2743e74883a3ead88b8a4170ec";
-
-    /** 和风天气专属 API Host */
     private static final String QWEATHER_HOST = "https://nr3qquchga.re.qweatherapi.com";
 
     private final Context ctx;
@@ -44,12 +41,10 @@ public class WeatherHelper {
         this.prefs = ctx.getSharedPreferences("app", Context.MODE_PRIVATE);
     }
 
-    /** H5 同步调用：直接返回上次缓存 */
     public String getCachedWeather() {
         return prefs.getString("weather_json", null);
     }
 
-    /** 主动刷新天气 */
     public void refresh() {
         if (hasLocationPermission()) {
             requestByLocation();
@@ -92,6 +87,7 @@ public class WeatherHelper {
             if (last == null) last = lm.getLastKnownLocation(LocationManager.GPS_PROVIDER);
             if (last != null) fetchWeatherByCoord(last.getLongitude(), last.getLatitude());
 
+            // 关键：第三个参数是 Looper，不是 Handler
             lm.requestSingleUpdate(LocationManager.NETWORK_PROVIDER, new LocationListener() {
                 @Override public void onLocationChanged(Location location) {
                     fetchWeatherByCoord(location.getLongitude(), location.getLatitude());
@@ -101,7 +97,7 @@ public class WeatherHelper {
                 @Override public void onProviderDisabled(String provider) {
                     requestByIp();
                 }
-            }, main);
+            }, Looper.getMainLooper());
 
         } catch (SecurityException e) {
             Log.w(TAG, "location security exception", e);
@@ -205,7 +201,6 @@ public class WeatherHelper {
         }
     }
 
-    /** 和风天气图标码 → emoji */
     private String mapIcon(String code) {
         int c = 0;
         try { c = Integer.parseInt(code); } catch (Exception ignored) {}
