@@ -17,6 +17,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue"
 .page[data-accent="closet"]{--accent:#8B7CF6;--accent2:#B39BFF;--accent-soft:#F1EEFF}
 .page[data-accent="cal"]{--accent:#4A9EFF;--accent2:#7FC4FF;--accent-soft:#EAF3FF}
 .page[data-accent="care"]{--accent:#FF6FA5;--accent2:#FFA1C4;--accent-soft:#FFEEF5}
+.page[data-accent="home"]{--accent:#1FBFA9;--accent2:#5FD9C4;--accent-soft:#E7F9F5}
 .hero{flex:none;padding:calc(16px + env(safe-area-inset-top, 16px)) 20px 22px;color:#fff;border-radius:0 0 26px 26px;background:linear-gradient(135deg,var(--accent),var(--accent2))}
 .hero-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .hero h1{font-size:22px;font-weight:700}
@@ -422,13 +423,73 @@ body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue"
 .report-history-item .rhi-t{font-size:13.5px;font-weight:600;color:#1B1F2A}
 .report-history-item .rhi-s{font-size:11.5px;color:#8A90A2;margin-top:3px}
 .report-empty{text-align:center;padding:40px 20px;color:#8A90A2;font-size:13px;line-height:1.7}
+/* ===== 首页 ===== */
+.home-head{background:#fff;padding:calc(22px + env(safe-area-inset-top, 22px)) 20px 18px;display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.home-head .left .title{font-size:26px;font-weight:800;letter-spacing:1px;color:#1B1F2A}
+.home-head .left .suggest{font-size:12px;color:#8A90A2;margin-top:10px;line-height:1.65;max-width:230px}
+.home-head .right{text-align:right;flex:none;padding-top:2px}
+.home-head .right .date{font-size:14px;font-weight:700;color:#1B1F2A}
+.home-head .right .weather{font-size:13px;color:#5A6175;margin-top:9px}
+.home-head .right .temp{font-size:12.5px;color:#8A90A2;margin-top:3px}
+.home-tl-wrap{background:#fff;border-radius:18px;margin:0 16px 12px;box-shadow:0 3px 14px rgba(30,40,80,.055);overflow:hidden}
+.home-tl-item{display:flex;align-items:center;gap:12px;padding:12px 16px;position:relative}
+.home-tl-item[data-home-action]{cursor:pointer}
+.home-tl-item[data-home-action]:active{background:#F5FBFA}
+.home-tl-item:not(:last-child)::after{content:'';position:absolute;left:29px;bottom:-6px;width:1.5px;height:14px;background:#E6E9F1}
+.home-tl-dot{width:8px;height:8px;border-radius:50%;background:#fff;border:2px solid #DDE2EC;flex:none;position:relative;z-index:1;box-sizing:content-box}
+.home-tl-item[data-home-action] .home-tl-dot{border-color:var(--accent)}
+.home-tl-item.is-done .home-tl-dot{background:var(--accent);border-color:var(--accent)}
+.home-tl-text{flex:1;font-size:13.5px;color:#1B1F2A;line-height:1.5;min-width:0}
+.home-tl-text .tm{color:#8A90A2;font-size:11.5px;font-weight:600;margin-right:8px;font-variant-numeric:tabular-nums}
+.home-tl-text .sub{color:#8A90A2;font-size:11.5px;display:block;margin-top:2px;line-height:1.45}
+.home-tl-arrow{color:var(--accent);font-size:16px;flex:none;font-weight:300;opacity:.55;line-height:1}
+.home-tl-badge{font-size:10px;color:var(--accent);background:var(--accent-soft);padding:2px 8px;border-radius:6px;font-weight:700;flex:none;letter-spacing:.3px}
+.home-tl-badge.todo{color:#4A9EFF;background:#EAF3FF}
+.home-section-label{font-size:12px;color:#8A90A2;font-weight:700;letter-spacing:.5px;padding:0 20px;margin:16px 0 8px;text-transform:uppercase}
+.pulse{animation:pulseBorder 1.6s ease}
+@keyframes pulseBorder{0%{box-shadow:0 0 0 0 rgba(255,111,165,.5)}70%{box-shadow:0 0 0 14px rgba(255,111,165,0)}100%{box-shadow:0 0 0 0 rgba(255,111,165,0)}}
 </style>
 </head>
 <body>
 <div class="phone">
   <div class="pages">
 
-    <section class="page active" data-accent="cal" id="p-cal">
+    <!-- ========== 首页 ========== -->
+    <section class="page active" data-accent="home" id="p-home">
+      <div class="scroll">
+        <div class="home-head">
+          <div class="left">
+            <div class="title">今日</div>
+            <div class="suggest" id="lifeSuggest">生活建议：加载中…</div>
+          </div>
+          <div class="right">
+            <div class="date" id="homeDate">—</div>
+            <div class="weather" id="homeWeather">☀️ 晴</div>
+            <div class="temp" id="homeTemp">--℃</div>
+          </div>
+        </div>
+
+        <div class="home-section-label" style="margin-top:4px">时间线</div>
+        <div class="home-tl-wrap" id="homeTlWrap"></div>
+
+        <!-- 今日皮肤状态（仅选择器，描述卡片在美丽修行页） -->
+        <div class="home-section-label">今日皮肤状态</div>
+        <div class="card" style="margin-top:0">
+          <div class="card-title">今日皮肤状态 <span class="muted">点击切换护肤流程</span></div>
+          <div class="opt-list" id="skinOptions"></div>
+        </div>
+
+        <!-- 今日身体状态 -->
+        <div class="home-section-label">今日身体状态</div>
+        <div class="card" style="margin-top:0">
+          <div class="card-title">今日身体状态 <span class="muted">点击切换，同步调整计划</span></div>
+          <div class="opt-list" id="bodyOptions"></div>
+        </div>
+        <div class="card" id="bodyStateCard"></div>
+      </div>
+    </section>
+
+    <section class="page" data-accent="cal" id="p-cal">
       <header class="hero">
         <div class="hero-row">
           <h1>日历行程</h1>
@@ -585,25 +646,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue"
       <nav class="subnav">
         <button class="sub-item active">今日计划</button>
         <button class="sub-item">身体状态</button>
-        <button class="sub-item">今日实际安排</button>
         <button class="sub-item">正式训练</button>
       </nav>
       <div class="scroll">
         <div class="pane active">
-          <div class="card plan-start-card">
-            <div class="card-title"><span>📅 计划开始日期</span><span class="muted" id="planStartWeekInfo"></span></div>
-            <div class="dim-row" style="border-bottom:none">
-              <span class="lb">从哪天开始</span>
-              <input type="date" id="planStartInput">
-            </div>
-            <div style="display:flex;gap:8px;margin-top:10px">
-              <button class="mini-add" id="resetPlanStartBtn" style="flex:1">重置为今天</button>
-              <button class="mini-add ghost" id="shiftPlanStartBtn" style="flex:1">往后顺延 1 周</button>
-            </div>
-            <p class="tip" style="margin-top:10px;font-size:12px;color:#8A5A48;opacity:.85">
-              修改后，第 1 周从新日期重新开始，计划总长仍为 12 周（84 天）。已完成打卡记录不受影响。
-            </p>
-          </div>
           <div class="card" id="sportSessionCard">
             <div class="card-title">训练打卡 <span class="tag" id="sportSessionTag">未开始</span></div>
             <div class="dim-row" id="sportTimeRow">
@@ -618,39 +664,32 @@ body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue"
             <div id="weekRows"></div>
           </div>
           <div class="card" id="planPreview"></div>
+          <div class="card plan-start-card">
+            <div class="card-title"><span>📅 计划开始日期</span><span class="muted" id="planStartWeekInfo"></span></div>
+            <div class="dim-row" style="border-bottom:none">
+              <span class="lb">从哪天开始</span>
+              <input type="date" id="planStartInput">
+            </div>
+            <div style="display:flex;gap:8px;margin-top:10px">
+              <button class="mini-add" id="resetPlanStartBtn" style="flex:1">重置为今天</button>
+              <button class="mini-add ghost" id="shiftPlanStartBtn" style="flex:1">往后顺延 1 周</button>
+            </div>
+            <p class="tip" style="margin-top:10px;font-size:12px;color:#8A5A48;opacity:.85">
+              修改后，第 1 周从新日期重新开始，计划总长仍为 12 周（84 天）。已完成打卡记录不受影响。
+            </p>
+          </div>
         </div>
         <div class="pane">
-          <div class="card">
-            <div class="card-title">今日身体状态 <span class="muted">点击切换，同步调整计划</span></div>
-            <div class="opt-list" id="bodyOptions"></div>
-          </div>
           <div class="stats" style="grid-template-columns:repeat(2,1fr)">
             <div class="stat"><div class="v" id="statWeight">54.2</div><div class="k">体重 kg</div><div class="d" id="statWeightDelta">—</div></div>
             <div class="stat"><div class="v" id="statBodyFat">22.1%</div><div class="k">体脂率</div><div class="d" id="statBodyFatDelta">—</div></div>
           </div>
-          <div class="card" id="bodyStateCard"></div>
-          <div class="card">
-            <div class="card-title">🍽️ 每日饮食时间表 <span class="muted">工作日版</span></div>
-            <div class="kv"><span class="k">07:40</span><span class="v">早餐：鸡蛋 + 牛奶/豆浆 + 燕麦/面包 + 水果</span></div>
-            <div class="kv"><span class="k">11:30</span><span class="v">午餐：米饭/面 + 肉/鱼/豆腐 + 两份蔬菜</span></div>
-            <div class="kv"><span class="k">15:30</span><span class="v">加餐：酸奶+水果 / 牛奶+坚果 / 蛋白饮品</span></div>
-            <div class="kv"><span class="k">17:00</span><span class="v">晚餐：米饭 + 鱼/鸡肉 + 蔬菜（避免油腻）</span></div>
-            <div class="vis-item" style="border-bottom:none;padding-top:8px"><span class="ic">💡</span><span>训练后不饿不必强行吃；若饿或蛋白不足，补充20–30g蛋白质。</span></div>
-            <div class="card-title" style="margin-top:14px">🥛 蛋白粉轮换</div>
-            <div class="kv"><span class="k">周一/四</span><span class="v">酵母蛋白</span></div>
-            <div class="kv"><span class="k">周二/五</span><span class="v">大豆蛋白</span></div>
-            <div class="kv"><span class="k">周三/日</span><span class="v">视情况不喝或按需补充</span></div>
-            <div class="kv"><span class="k">周六</span><span class="v">游泳后按蛋白缺口补</span></div>
-          </div>
+          <div class="card" id="actualBurn"></div>
+          <div class="card" id="actualRecord"></div>
           <div class="card">
             <div class="card-title">📊 历史概览</div>
             <div id="historySummary"></div>
           </div>
-        </div>
-        <div class="pane">
-          <div class="card"><div class="card-title">今日时间线 <span class="muted" id="actualDateLabel">今天</span></div><div class="tl" id="actualTl"></div></div>
-          <div class="card" id="actualBurn"></div>
-          <div class="card" id="actualRecord"></div>
         </div>
         <div class="pane" id="formalContent"></div>
       </div>
@@ -806,7 +845,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue"
               <button class="btn-confirm" id="confirmProfileBtn" disabled>确定更改</button>
             </div>
           </div>
-          <div class="card"><div class="card-title">今日皮肤状态 <span class="muted">点击切换护肤流程</span></div><div class="opt-list" id="skinOptions"></div></div>
           <div class="card" id="skinDescCard"></div>
           <div class="card" id="skinMorningCard"></div>
           <div class="card" id="skinNightCard"></div>
@@ -914,7 +952,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue"
   </div>
 
   <div class="center-timer" id="centerTimer">
-    <div class="box"><div class="big" id="centerTimerNum">90</div><div class="txt">该站起来走动走动了</div><div class="sub">起身 → 走动2–3分钟 → 下巴轻收5次 → 肩胛向后下轻收5–8次</div></div>
+    <div class="box"><div class="big" id="centerTimerNum">200</div><div class="txt">该站起来走动走动了</div><div class="sub">起身 → 走动2–3分钟 → 下巴轻收5次 → 肩胛向后下轻收5–8次</div></div>
   </div>
 
   <!-- AI 聊天面板 -->
@@ -956,7 +994,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue"
   </div>
 
   <nav class="tabbar">
-    <button class="tab active" data-target="p-cal"><span class="ti">📅</span>日历</button>
+    <button class="tab active" data-target="p-home"><span class="ti">🏠</span>首页</button>
+    <button class="tab" data-target="p-cal"><span class="ti">📅</span>日历</button>
     <button class="tab" data-target="p-money"><span class="ti">🎙️</span>记账</button>
     <button class="tab" data-target="p-sport"><span class="ti">🏃</span>运动</button>
     <button class="tab" data-target="p-closet"><span class="ti">👗</span>衣橱</button>
@@ -1200,7 +1239,7 @@ function toggleTodo(date, item){
   if (m[k]) delete m[k]; else m[k] = true;
   saveTodoStatusMap(m);
   buildCalendarFromPlans();
-  renderCalendar(); renderAllTodo(); renderUndone();
+  renderCalendar(); renderAllTodo(); renderUndone(); renderHomeTimeline();
 }
 function getManualTodos(){
   try { return JSON.parse(__nativeGetItem('calendarManual') || '{}'); } catch(e){ return {}; }
@@ -1745,10 +1784,44 @@ function getCatList(type){
   const custom = (state.customCats && state.customCats[type]) || [];
   return [...base, ...custom.filter(c => !base.includes(c))];
 }
+/* ===== 中文金额解析 ===== */
+function parseChineseAmount(str){
+  const cn = { '零':'0','一':'1','二':'2','两':'2','三':'3','四':'4','五':'5','六':'6','七':'7','八':'8','九':'9' };
+  let s = String(str || '');
+  s = s.replace(/[零一二两三四五六七八九]/g, ch => cn[ch] || ch);
+  let amount = 0, matched = false;
+  const yuanM = s.match(/(\d+(?:\.\d+)?)\s*[块元圆]/);
+  const jiaoM = s.match(/(\d+)\s*[毛角]/);
+  const fenM  = s.match(/(\d+)\s*分/);
+  if (yuanM) {
+    amount = parseFloat(yuanM[1]);
+    matched = true;
+    if (jiaoM && jiaoM.index > yuanM.index) {
+      amount += parseFloat(jiaoM[1]) / 10;
+      if (fenM && fenM.index > jiaoM.index) amount += parseFloat(fenM[1]) / 100;
+    } else {
+      const tail = s.slice(yuanM.index + yuanM[0].length);
+      const m2 = tail.match(/^\s*(\d+)/);
+      if (m2 && parseFloat(m2[1]) < 10) amount += parseFloat(m2[1]) / 10;
+    }
+  } else if (jiaoM) {
+    amount = parseFloat(jiaoM[1]) / 10;
+    matched = true;
+    if (fenM && fenM.index > jiaoM.index) amount += parseFloat(fenM[1]) / 100;
+  } else if (fenM) {
+    amount = parseFloat(fenM[1]) / 100;
+    matched = true;
+  }
+  if (!matched) {
+    const m = s.match(/(\d+(?:\.\d+)?)/);
+    if (m) { amount = parseFloat(m[1]); matched = true; }
+  }
+  return Math.round(amount * 100) / 100;
+}
+
 function parseTransactionText(text){
   const t = String(text || '').trim();
-  const m = t.match(/(\d+(?:\.\d+)?)/);
-  const amount = m ? parseFloat(m[1]) : 0;
+  const amount = parseChineseAmount(t);
   let incomeScore = 0, expenseScore = 0;
   INCOME_HINTS.forEach(re => { if (re.test(t)) incomeScore++; });
   EXPENSE_HINTS.forEach(re => { if (re.test(t)) expenseScore++; });
@@ -1756,7 +1829,6 @@ function parseTransactionText(text){
   let category = type === 'income' ? '其他收入' : '其他';
   const dict = type === 'income' ? INCOME_CATS : EXPENSE_CATS;
   for (const [cat, re] of dict) { if (re.test(t)) { category = cat; break; } }
-
   const userMap = Store.load('noteCategoryMap', {});
   if (userMap[t]) {
     category = userMap[t];
@@ -1775,9 +1847,7 @@ function renderTxEditor(){
     return;
   }
   box.classList.add('show');
-  if (confirmBtn) {
-    confirmBtn.textContent = p.editingId ? '✓ 保存修改' : '✓ 确认记账';
-  }
+  if (confirmBtn) confirmBtn.textContent = p.editingId ? '✓ 保存修改' : '✓ 确认记账';
   $('#txAmount').value = p.amount || '';
   $('#txNote').value = p.note || '';
   $$('#txTypeChips .cat-chip').forEach(c => c.classList.toggle('active', c.dataset.txtype === p.type));
@@ -2143,6 +2213,8 @@ function renderUndone(){
   $('#undoneList').innerHTML = items.length ? items.map(it => todoRowHTML(it, today)).join('') : '<p class="tip" style="color:#8A90A2">没有未完成的事项 🎉</p>';
 }
 function openTodoSheet(){
+  if (isSuppressed()) return;
+  closeAllSheets();
   $('#todoDate').value = state.selectedDate;
   $('#todoSheet').classList.add('show');
   $('#todoMask').classList.add('show');
@@ -2157,7 +2229,7 @@ function saveTodo(){
   saved[date].push({ time: time || '全天', title, desc, done:false });
   saveManualTodos(saved);
   buildCalendarFromPlans();
-  renderCalendar(); renderAllTodo(); renderUndone();
+  renderCalendar(); renderAllTodo(); renderUndone(); renderHomeTimeline();
   closeTodoSheet();
   $('#todoTitle').value = ''; $('#todoDesc').value = '';
 }
@@ -2438,6 +2510,8 @@ function renderFreeOptions(){
   }).join('') + '</div>';
 }
 function openPickSheet(slotIndex){
+  if (isSuppressed()) return;
+  closeAllSheets();
   const slotType = slotIndex === 0 ? ['coat','top','dress'] : slotIndex === 1 ? ['pants'] : ['shoes','bag','acc'];
   const list = state.clothes.filter(c => slotType.includes(c.cat));
   if (!list.length) { $('#pickBody').innerHTML = '<p class="tip" style="color:#8A90A2;text-align:center;padding:20px 0">产品库中没有该品类单品</p>'; }
@@ -2923,11 +2997,14 @@ function renderSkin(){
   const s = SKIN_STATES[state.skinState] || SKIN_STATES['stable'];
   const steps = s.getSteps();
 
-  $('#skinOptions').innerHTML = Object.values(SKIN_STATES).map(v => `
-    <div class="opt-item ${state.skinState === v.key ? 'active' : ''}" data-skin="${v.key}">
-      <span class="oi-ic">${v.icon}</span><span class="oi-lb">${v.label}</span>
-      <span class="oi-ck">${state.skinState === v.key ? '✓' : ''}</span>
-    </div>`).join('');
+  const skinOptEl = $('#skinOptions');
+  if (skinOptEl) {
+    skinOptEl.innerHTML = Object.values(SKIN_STATES).map(v => `
+      <div class="opt-item ${state.skinState === v.key ? 'active' : ''}" data-skin="${v.key}">
+        <span class="oi-ic">${v.icon}</span><span class="oi-lb">${v.label}</span>
+        <span class="oi-ck">${state.skinState === v.key ? '✓' : ''}</span>
+      </div>`).join('');
+  }
 
   let stateNote = '';
   if (s.key === 'stable') {
@@ -2941,11 +3018,14 @@ function renderSkin(){
     stateNote = `<div class="vis-item" style="border-bottom:none;padding-top:10px;background:#FFEDEA;border-radius:10px;padding:10px;margin-top:8px"><span class="ic">🛑</span><span><b>屏障修复模式</b>：暂停维C、壬二酸、烟酰胺，直到刺痛泛红明显下降。严重请就医。</span></div>`;
   }
 
-  $('#skinDescCard').innerHTML = `
-    <div class="card-title">${s.icon} ${s.label} <span class="tag on">今日流程</span></div>
-    <p class="tip">${s.desc}</p>
-    <div class="vis-item" style="border-bottom:none;padding-top:12px"><span class="ic">💡</span><span>${s.tips}</span></div>
-    ${stateNote}`;
+  const descEl = $('#skinDescCard');
+  if (descEl) {
+    descEl.innerHTML = `
+      <div class="card-title">${s.icon} ${s.label} <span class="tag on">今日流程</span></div>
+      <p class="tip">${s.desc}</p>
+      <div class="vis-item" style="border-bottom:none;padding-top:12px"><span class="ic">💡</span><span>${s.tips}</span></div>
+      ${stateNote}`;
+  }
 
   const renderSteps = (title, baseList, phase) => {
     const custom = (getCustomSkinSteps()[phase] || []);
@@ -2953,7 +3033,7 @@ function renderSkin(){
     const stepsHtml = list.map(it => {
       const prod = getSkinProductForStep(it.id, it.defaultProduct);
       const checkKey = `skin_${todayStr()}_${it.id}`;
-      let prodHtml = '', evalHtml = '';
+      let prodHtml = '';
       if (prod) {
         const exp = checkProductExpiry(prod);
         const r = analyzeIngredients(prod.name, prod.ingredients, prod.key);
@@ -2990,11 +3070,15 @@ function renderSkin(){
     return `<div class="card-title"><span>${title}</span><span style="display:flex;align-items:center;gap:10px"><span class="muted">${list.length} 步</span><button class="mini-add" data-add-skin-step="${phase}">＋ 添加步骤</button></span></div>${stepsHtml}`;
   };
 
-  $('#skinMorningCard').innerHTML = renderSteps('☀️ 早间流程', steps.morning, 'morning');
-  $('#skinNightCard').innerHTML = renderSteps('🌙 晚间流程', steps.night, 'night');
+  const mEl = $('#skinMorningCard');
+  if (mEl) mEl.innerHTML = renderSteps('☀️ 早间流程', steps.morning, 'morning');
+  const nEl = $('#skinNightCard');
+  if (nEl) nEl.innerHTML = renderSteps('🌙 晚间流程', steps.night, 'night');
   applyChecks();
 }
 function openProductSheet(stepId){
+  if (isSuppressed()) return;
+  closeAllSheets();
   state.pickingSkinStep = stepId;
   $('#prodManualName').value = ''; $('#prodManualIngr').value = '';
   if ($('#prodOpenedAt')) $('#prodOpenedAt').value = '';
@@ -3223,20 +3307,25 @@ function renderBodyOptions(){
     { mode:'leave', label:'请假', icon:'📝' },
     { mode:'rest', label:'休息', icon:'😴' }
   ];
-  $('#bodyOptions').innerHTML = opts.map(o => {
+  const el = $('#bodyOptions');
+  if (!el) return;
+  el.innerHTML = opts.map(o => {
     const isActive = o.mode === 'original' ? !currentOverride : currentOverride === o.mode;
     return `<div class="opt-item ${isActive ? 'active' : ''}" data-mode="${o.mode}"><span class="oi-ic">${o.icon}</span><span class="oi-lb">${o.label}</span><span class="oi-ck">${isActive ? '✓' : ''}</span></div>`;
   }).join('');
 }
 function renderBodyStateCard(){
   const p = currentPlan();
-  if (!p.isTraining) { $('#bodyStateCard').innerHTML = `<div class="card-title">休息日 <span class="tag on">恢复</span></div><p class="tip">今日完全休息，后续训练自动顺延。</p>`; return; }
-  $('#bodyStateCard').innerHTML = `<div class="card-title">状态正常 <span class="tag on">可正常训练</span></div><p class="tip">按计划执行，RPE 控制在 5–8。</p>`;
+  const el = $('#bodyStateCard');
+  if (!el) return;
+  if (!p.isTraining) { el.innerHTML = `<div class="card-title">休息日 <span class="tag on">恢复</span></div><p class="tip">今日完全休息，后续训练自动顺延。</p>`; return; }
+  el.innerHTML = `<div class="card-title">状态正常 <span class="tag on">可正常训练</span></div><p class="tip">按计划执行，RPE 控制在 5–8。</p>`;
 }
 function buildTimeline(p){
   const now = new Date();
   const sess = getSportSession();
-  $('#actualDateLabel').textContent = `${now.getMonth()+1} 月 ${now.getDate()} 日`;
+  const el = $('#actualDateLabel');
+  if (el) el.textContent = `${now.getMonth()+1} 月 ${now.getDate()} 日`;
   const startLabel = sess ? (sess.startLabel || fmtTime(new Date(sess.startTs))) : '19:30';
   if (!p.isTraining) {
     return [
@@ -3277,49 +3366,47 @@ function estimateBurn(p){
 }
 function renderActual(){
   const p = currentPlan();
-  $('#actualTl').innerHTML = buildTimeline(p).map(it => `
-    <div class="tl-item">
-      <div class="tl-time">${it.time}</div>
-      <div class="tl-title">${it.title}</div>
-      <div class="tl-desc">${it.desc}</div>
-    </div>`).join('');
   const burnEl = $('#actualBurn');
-  if (!p.isTraining) {
-    burnEl.innerHTML = `<div class="card-title">今日消耗 <span class="muted">休息日</span></div><div class="row-between"><div><div style="font-size:26px;font-weight:700">—</div><div class="muted">不安排训练</div></div><span class="tag">休息</span></div>`;
-  } else {
-    const b = estimateBurn(p);
-    const w = Number(body.weight) || 55;
-    burnEl.innerHTML = `
-      <div class="card-title">今日消耗 <span class="muted">MET × 体重估算</span></div>
-      <div class="row-between">
-        <div>
-          <div style="font-size:26px;font-weight:700">${b.kcal} <span style="font-size:13px;font-weight:500;color:#8A90A2">kcal</span></div>
-          <div class="muted">目标 ${b.target} kcal · 已完成 ${b.doneSets}/${b.totalSets} 组</div>
+  if (burnEl) {
+    if (!p.isTraining) {
+      burnEl.innerHTML = `<div class="card-title">今日消耗 <span class="muted">休息日</span></div><div class="row-between"><div><div style="font-size:26px;font-weight:700">—</div><div class="muted">不安排训练</div></div><span class="tag">休息</span></div>`;
+    } else {
+      const b = estimateBurn(p);
+      const w = Number(body.weight) || 55;
+      burnEl.innerHTML = `
+        <div class="card-title">今日消耗 <span class="muted">MET × 体重估算</span></div>
+        <div class="row-between">
+          <div>
+            <div style="font-size:26px;font-weight:700">${b.kcal} <span style="font-size:13px;font-weight:500;color:#8A90A2">kcal</span></div>
+            <div class="muted">目标 ${b.target} kcal · 已完成 ${b.doneSets}/${b.totalSets} 组</div>
+          </div>
+          <span class="tag on">${b.pct}%</span>
         </div>
-        <span class="tag on">${b.pct}%</span>
-      </div>
-      <div class="progress" style="margin-top:14px"><div class="bar" style="width:${b.pct}%"></div></div>
-      <p class="tip" style="margin-top:10px;font-size:11.5px;color:#8A90A2">按每个动作的 MET 系数、你的体重（${w.toFixed(1)} kg）和预估每组耗时（1.5 分钟，含休息）估算。仅供参考。</p>`;
+        <div class="progress" style="margin-top:14px"><div class="bar" style="width:${b.pct}%"></div></div>
+        <p class="tip" style="margin-top:10px;font-size:11.5px;color:#8A90A2">按每个动作的 MET 系数、你的体重（${w.toFixed(1)} kg）和预估每组耗时（1.5 分钟，含休息）估算。仅供参考。</p>`;
+    }
   }
   const recEl = $('#actualRecord');
-  const sess = getSportSession();
-  if (!p.isTraining) {
-    recEl.innerHTML = `<div class="card-title">今日记录</div><div class="task"><span class="check done" data-check-key="rec_${todayStr()}_rest"></span><div class="body"><div class="t-name">充分休息</div></div></div>`;
-  } else {
-    let extra = '';
-    if (sess) {
-      const total = sess.endTs ? (sess.endTs - sess.startTs) : (Date.now() - sess.startTs);
-      const setCount = Object.values(sess.sets || {}).reduce((a, b) => a + b.length, 0);
-      extra = `<div class="kv" style="margin-bottom:10px"><span class="k">打卡时长</span><span class="v hl">${fmtDuration(total)}</span></div>
-               <div class="kv" style="margin-bottom:10px"><span class="k">开始时间</span><span class="v">${sess.startLabel || '—'}</span></div>
-               <div class="kv" style="margin-bottom:10px"><span class="k">完成组数</span><span class="v">${setCount} 组</span></div>`;
+  if (recEl) {
+    const sess = getSportSession();
+    if (!p.isTraining) {
+      recEl.innerHTML = `<div class="card-title">今日记录</div><div class="task"><span class="check done" data-check-key="rec_${todayStr()}_rest"></span><div class="body"><div class="t-name">充分休息</div></div></div>`;
     } else {
-      extra = `<p class="tip" style="color:#8A90A2;margin-bottom:10px">还没有开始打卡，去「今日计划」页设置开始时间。</p>`;
+      let extra = '';
+      if (sess) {
+        const total = sess.endTs ? (sess.endTs - sess.startTs) : (Date.now() - sess.startTs);
+        const setCount = Object.values(sess.sets || {}).reduce((a, b) => a + b.length, 0);
+        extra = `<div class="kv" style="margin-bottom:10px"><span class="k">打卡时长</span><span class="v hl">${fmtDuration(total)}</span></div>
+                 <div class="kv" style="margin-bottom:10px"><span class="k">开始时间</span><span class="v">${sess.startLabel || '—'}</span></div>
+                 <div class="kv" style="margin-bottom:10px"><span class="k">完成组数</span><span class="v">${setCount} 组</span></div>`;
+      } else {
+        extra = `<p class="tip" style="color:#8A90A2;margin-bottom:10px">还没有开始打卡，去「今日计划」页设置开始时间。</p>`;
+      }
+      recEl.innerHTML = `<div class="card-title">训练后记录</div>${extra}
+        <div class="task"><span class="check" data-check-key="rec_${todayStr()}_quality"></span><div class="body"><div class="t-name">动作质量达标</div></div></div>
+        <div class="task"><span class="check" data-check-key="rec_${todayStr()}_pain"></span><div class="body"><div class="t-name">疼痛未加重</div></div></div>
+        <div class="task"><span class="check" data-check-key="rec_${todayStr()}_supp"></span><div class="body"><div class="t-name">已补充蛋白粉</div></div></div>`;
     }
-    recEl.innerHTML = `<div class="card-title">训练后记录</div>${extra}
-      <div class="task"><span class="check" data-check-key="rec_${todayStr()}_quality"></span><div class="body"><div class="t-name">动作质量达标</div></div></div>
-      <div class="task"><span class="check" data-check-key="rec_${todayStr()}_pain"></span><div class="body"><div class="t-name">疼痛未加重</div></div></div>
-      <div class="task"><span class="check" data-check-key="rec_${todayStr()}_supp"></span><div class="body"><div class="t-name">已补充蛋白粉</div></div></div>`;
   }
   applyChecks();
 }
@@ -3384,6 +3471,7 @@ function renderFormal(){
   state.restTimers = {};
   const p = currentPlan();
   const el = $('#formalContent');
+  if (!el) return;
   if (!p.isTraining) {
     el.innerHTML = `<div class="card" style="background:var(--accent-soft);text-align:center;padding:28px 20px"><div style="font-size:40px;margin-bottom:12px">${p.icon}</div><div style="font-size:16px;font-weight:700;margin-bottom:10px">${p.label}</div><p class="tip" style="text-align:left">${p.tips.join('<br>')}</p></div>`;
     return;
@@ -3432,8 +3520,8 @@ function renderSportBodyStats(){
   const todayRec = getBodyHistory().find(x => x.date === todayStr());
   const w = todayRec ? todayRec.weight : body.weight;
   const bf = todayRec ? todayRec.bodyFat : body.bodyFat;
-  $('#statWeight').textContent = w.toFixed(1);
-  $('#statBodyFat').textContent = bf.toFixed(1) + '%';
+  const sw = $('#statWeight'); if (sw) sw.textContent = w.toFixed(1);
+  const sb = $('#statBodyFat'); if (sb) sb.textContent = bf.toFixed(1) + '%';
   const y = getYesterdayBody();
   const dwEl = document.getElementById('statWeightDelta');
   const dbEl = document.getElementById('statBodyFatDelta');
@@ -3509,19 +3597,100 @@ function playBeep(){
   try { const ctx = new (window.AudioContext || window.webkitAudioContext)(); const o = ctx.createOscillator(), g = ctx.createGain(); o.connect(g); g.connect(ctx.destination); o.frequency.value = 880; o.type = 'sine'; g.gain.setValueAtTime(0.3, ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.8); o.start(); o.stop(ctx.currentTime + 0.8); } catch(e){}
 }
 
-/* ===== 久坐提醒 ===== */
+/* ===== 久坐提醒（时间戳驱动 · 支持后台继续走） ===== */
+let centerTimerEndTs = 0;
+let centerTimerHandle = null;
+let centerTimerActive = false;
+
+function speakText(text){
+  const t = String(text || '');
+  if (!t) return;
+  try {
+    if (window.AndroidBridge && typeof AndroidBridge.speak === 'function') {
+      AndroidBridge.speak(t);
+      return;
+    }
+  } catch(e){}
+  try {
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(t);
+      u.lang = 'zh-CN';
+      u.rate = 1.0;
+      u.pitch = 1.0;
+      window.speechSynthesis.speak(u);
+    }
+  } catch(e){}
+}
+
+function vibratePattern(pattern){
+  try { if (navigator.vibrate) navigator.vibrate(pattern); } catch(e){}
+  try {
+    if (window.AndroidBridge && typeof AndroidBridge.vibrate === 'function') {
+      AndroidBridge.vibrate();
+    }
+  } catch(e){}
+}
+
+function finishCenterTimer(){
+  centerTimerActive = false;
+  centerTimerEndTs = 0;
+  if (centerTimerHandle) { clearInterval(centerTimerHandle); centerTimerHandle = null; }
+  const el = $('#centerTimer');
+  if (el) el.classList.remove('show');
+  try { playBeep(); } catch(e){}
+  setTimeout(() => { try { playBeep(); } catch(e){} }, 420);
+  vibratePattern([300, 150, 300]);
+  setTimeout(() => speakText('时间到，回到座位继续吧'), 500);
+  try {
+    if (typeof sendAppNotification === 'function') {
+      sendAppNotification('走动时间结束', '200 秒到了，可以回到座位继续啦');
+    }
+  } catch(e){}
+}
+
+function tickCenterTimer(){
+  if (!centerTimerActive) return;
+  const el = $('#centerTimer');
+  const num = $('#centerTimerNum');
+  if (!el || !num) return;
+  const left = Math.max(0, Math.ceil((centerTimerEndTs - Date.now()) / 1000));
+  num.textContent = left;
+  if (left <= 0) finishCenterTimer();
+}
+
 function showCenterTimer(sec){
-  const el = $('#centerTimer'); const num = $('#centerTimerNum');
-  el.classList.add('show'); num.textContent = sec;
-  let left = sec;
-  if (el.dataset.timer) clearInterval(Number(el.dataset.timer));
-  const t = setInterval(() => {
-    left--; num.textContent = left;
-    if (left <= 0) { clearInterval(t); el.classList.remove('show'); playBeep(); }
-  }, 1000);
-  el.dataset.timer = t;
+  const el = $('#centerTimer');
+  const num = $('#centerTimerNum');
+  if (!el || !num) return;
+
+  const duration = Math.max(1, parseInt(sec, 10) || 200);
+  centerTimerEndTs = Date.now() + duration * 1000;
+  centerTimerActive = true;
+
+  el.classList.add('show');
+  num.textContent = duration;
+
+  if (centerTimerHandle) clearInterval(centerTimerHandle);
+  centerTimerHandle = setInterval(tickCenterTimer, 250);
+  tickCenterTimer();
+
+  speakText('开始动一动');
+  vibratePattern([150]);
+
+  try {
+    if (typeof sendAppNotification === 'function') {
+      sendAppNotification('该站起来走动了', '起身 → 走动2–3分钟 → 下巴轻收5次 → 肩胛向后下轻收5–8次');
+    }
+  } catch(e){}
 }
 window.showCenterTimer = showCenterTimer;
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && centerTimerActive) {
+    tickCenterTimer();
+  }
+});
 
 /* ===== 设置 ===== */
 function renderSettingsBody(){
@@ -3530,13 +3699,19 @@ function renderSettingsBody(){
       ${g.fields.map(f => `<div class="set-row"><span class="lb">${f.label}</span><input type="number" step="${f.step}" id="in-${f.key}" value="${body[f.key] ?? ''}"><span class="unit">${f.unit}</span></div>`).join('')}
     </div>`).join('');
 }
-function openSettings(){ renderSettingsBody(); $('#settingsMask').classList.add('show'); $('#settingsSheet').classList.add('show'); }
+function openSettings(){
+  if (isSuppressed()) return;
+  closeAllSheets();
+  renderSettingsBody();
+  $('#settingsMask').classList.add('show');
+  $('#settingsSheet').classList.add('show');
+}
 function closeSettings(){ $('#settingsMask').classList.remove('show'); $('#settingsSheet').classList.remove('show'); }
 function saveSettings(){
   BODY_FIELDS.forEach(k => { const input = document.getElementById('in-' + k); if (!input) return; const v = parseFloat(input.value); if (!isNaN(v)) body[k] = v; });
   Store.save('body', body);
   recordTodayBody();
-  closeSettings(); renderCloset(); renderSportBodyStats(); renderSkin(); renderHistorySummary();
+  closeSettings(); renderCloset(); renderSportBodyStats(); renderSkin(); renderHistorySummary(); renderHomeDate();
 }
 
 /* ===== 全局持久化 flush ===== */
@@ -3561,17 +3736,188 @@ function flushAll(){
 window.addEventListener('beforeunload', flushAll);
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushAll(); });
 
+/* ===== 面板 / 误触管理 ===== */
+let suppressClickUntil = 0;
+function suppressClicks(ms){ suppressClickUntil = Date.now() + (ms || 600); }
+function isSuppressed(){ return Date.now() < suppressClickUntil; }
+
+/* 关闭所有 sheet，避免多个面板叠层 */
+function closeAllSheets(){
+  ['settingsSheet','todoSheet','pickSheet','prodSheet'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.remove('show');
+  });
+  ['settingsMask','todoMask','pickMask','prodMask'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.remove('show');
+  });
+  state.pickingSkinStep = null;
+}
+
+/* ===== 首页 ===== */
+function renderHomeDate(){
+  const d = new Date();
+  const el1 = document.getElementById('homeDate');
+  if (el1) el1.textContent = `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日`;
+  const el2 = document.getElementById('homeWeather');
+  if (el2 && !el2.textContent.trim()) el2.textContent = '☀️ 晴';
+  const el3 = document.getElementById('homeTemp');
+  if (el3 && (!el3.textContent.trim() || el3.textContent.trim() === '--℃')) el3.textContent = '--℃';
+
+  // 衣着建议：按月份粗略判断
+  const m = d.getMonth() + 1;
+  let outfit = '薄外套 + 长袖';
+  if (m >= 3 && m <= 5) outfit = '春装：薄外套 + 长袖';
+  else if (m >= 6 && m <= 8) outfit = '夏装：轻薄透气短袖';
+  else if (m >= 9 && m <= 11) outfit = '秋装：薄针织 + 长裤';
+  else outfit = '冬装：厚外套 + 保暖内搭';
+
+  const s = document.getElementById('lifeSuggest');
+  if (s) {
+    try {
+      const p = currentPlan();
+      const sportTip = p.isTraining
+        ? `今天「${p.label}」，注意补水、蛋白与睡眠`
+        : `今天是「${p.label}」，充分休息别熬夜`;
+      s.innerHTML = `生活建议：${sportTip}<br>👕 衣着：${outfit}`;
+    } catch(e){
+      s.innerHTML = `生活建议：保持规律作息，多喝水<br>👕 衣着：${outfit}`;
+    }
+  }
+}
+
+function renderHomeTimeline(){
+  const wrap = document.getElementById('homeTlWrap');
+  if (!wrap) return;
+
+  const t = todayStr();
+  const manualTodos = ((state.calendarData[t] || []).filter(x => x.manual)).slice();
+  manualTodos.sort((a,b) => (a.time||'').localeCompare(b.time||''));
+
+  // 今日运动状态：根据身体状态选择动态显示
+  const ov = getOverride(new Date());
+  const ovMap = {
+    swim: '游泳',
+    reduced: '减量训练',
+    period: '经期休息',
+    leave: '请假',
+    rest: '休息'
+  };
+  let sportText = '运动';
+  if (ov && ovMap[ov]) sportText = ovMap[ov];
+  else {
+    try { sportText = currentPlan().label; } catch(e){ sportText = '运动'; }
+  }
+  // 只有训练日（正常/游泳/减量）才显示蛋白粉提示；休息 / 经期 / 请假不显示
+  let isTrainingDay = false;
+  try { isTrainingDay = currentPlan().isTraining; } catch(e){ isTrainingDay = false; }
+
+  const items = [
+    { time:'07:00', text:'起床 - 晨间 90/90 呼吸', done:true },
+    { time:'07:40', text:'护肤', sub:'早间护肤', action:'skin-morning', badge:'早间' },
+    { time:'07:40', text:'早饭（记得吃补剂）', sub:'鸡蛋 + 牛奶/豆浆 + 燕麦/面包 + 水果', action:'supplement' }
+  ];
+  if (manualTodos[0]) items.push({ time: manualTodos[0].time || '', text: manualTodos[0].title, action:'todo', isTodo:true });
+  items.push({ time:'11:30', text:'中饭（记得吃补剂）', sub:'米饭/面 + 肉/鱼/豆腐 + 两份蔬菜', action:'supplement' });
+  if (manualTodos[1]) items.push({ time: manualTodos[1].time || '', text: manualTodos[1].title, action:'todo', isTodo:true });
+  items.push({ time:'17:00', text:'晚饭（记得吃补剂）', sub:'米饭 + 鱼/鸡肉 + 蔬菜（避免油腻）', action:'supplement' });
+  if (manualTodos[2]) items.push({ time: manualTodos[2].time || '', text: manualTodos[2].title, action:'todo', isTodo:true });
+  items.push({ time:'19:30', text: sportText, action:'sport', badge:'今日运动' });
+  if (isTrainingDay) {
+    items.push({ time:'21:00', text:'蛋白质（运动的时候就补）', sub:'若饿或蛋白不足，补充 20–30g 蛋白质', action:'sport' });
+  }
+  items.push({ time:'22:00', text:'洗漱（护肤）', sub:'晚间护理', action:'skin-night', badge:'晚间' });
+  items.push({ time:'22:30', text:'睡前 90/90 呼吸' });
+
+  wrap.innerHTML = items.map(it => {
+    const cls = ['home-tl-item'];
+    if (it.done) cls.push('is-done');
+    const actionAttr = it.action ? `data-home-action="${it.action}"` : '';
+    const badge = it.badge
+      ? `<span class="home-tl-badge">${it.badge}</span>`
+      : (it.isTodo ? `<span class="home-tl-badge todo">代办</span>` : '');
+    const arrow = it.action ? `<span class="home-tl-arrow">›</span>` : '';
+    const sub = it.sub ? `<span class="sub">${it.sub}</span>` : '';
+    return `<div class="${cls.join(' ')}" ${actionAttr}>
+      <span class="home-tl-dot"></span>
+      <span class="home-tl-text">${it.time ? `<span class="tm">${it.time}</span>` : ''}${it.text}${sub}</span>
+      ${badge}${arrow}
+    </div>`;
+  }).join('');
+}
+
+/* 从首页跳转（用纯 DOM 切 tab，避免合成 click 误触发其它面板） */
+function switchTab(target){
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.target === target));
+  document.querySelectorAll('.page').forEach(p => p.classList.toggle('active', p.id === target));
+  const page = document.getElementById(target);
+  if (page) {
+    const sc = page.querySelector('.scroll');
+    if (sc) sc.scrollTop = 0;
+  }
+  if (target === 'p-home') { renderHomeDate(); renderHomeTimeline(); renderSportAll(); }
+  if (target === 'p-cal') { renderAllTodo(); renderUndone(); }
+  if (target === 'p-sport') { renderSportSession(); renderHistorySummary(); }
+  if (target === 'p-care') { renderSkin(); }
+}
+
+function jumpFromHome(action){
+  // 关闭所有已打开的 sheet，避免叠层
+  closeAllSheets();
+  // 跳转后短时间内屏蔽其他 click，避免触摸-点击合成事件误触
+  suppressClicks(900);
+
+  const goCareSubTab = (label, cardId) => {
+    switchTab('p-care');
+    setTimeout(() => {
+      const page = document.getElementById('p-care');
+      const nav = page && page.querySelector('.subnav');
+      if (nav){
+        const items = [...nav.querySelectorAll('.sub-item')];
+        const btn = items.find(b => b.textContent.includes(label));
+        if (btn && !btn.classList.contains('active')) btn.click();
+      }
+      if (cardId){
+        setTimeout(() => {
+          const el = document.getElementById(cardId);
+          if (!el) return;
+          // 直接设置 scrollTop（不用平滑滚动），避免滚动中误触发新元素
+          const scroller = el.closest('.scroll');
+          if (scroller){
+            const eRect = el.getBoundingClientRect();
+            const sRect = scroller.getBoundingClientRect();
+            scroller.scrollTop += (eRect.top - sRect.top) - Math.max(0, (sRect.height - eRect.height) / 2 - 20);
+          } else {
+            try { el.scrollIntoView({ block:'center' }); } catch(e){}
+          }
+          el.classList.add('pulse');
+          setTimeout(() => el.classList.remove('pulse'), 1800);
+        }, 200);
+      }
+    }, 320);
+  };
+
+  if (action === 'skin-morning') return goCareSubTab('护肤', 'skinMorningCard');
+  if (action === 'skin-night')   return goCareSubTab('护肤', 'skinNightCard');
+  if (action === 'supplement')   return goCareSubTab('补剂', null);
+  if (action === 'todo'){ switchTab('p-cal'); return; }
+  if (action === 'sport'){ switchTab('p-sport'); return; }
+}
+
+/* 首页时间线点击（捕获阶段拦截，阻止事件继续传播到其它 handler） */
+document.addEventListener('click', e => {
+  const tl = e.target.closest('[data-home-action]');
+  if (!tl) return;
+  e.preventDefault();
+  e.stopPropagation();
+  if (isSuppressed()) return;
+  jumpFromHome(tl.dataset.homeAction);
+}, true);
+
 /* ===== 事件绑定 ===== */
 $$('.tab').forEach(tab => {
   tab.addEventListener('click', () => {
-    $$('.tab').forEach(t => t.classList.remove('active'));
-    tab.classList.add('active');
-    $$('.page').forEach(p => p.classList.remove('active'));
-    const target = document.getElementById(tab.dataset.target);
-    if (target) { target.classList.add('active'); const sc = target.querySelector('.scroll'); if (sc) sc.scrollTop = 0; }
-    if (tab.dataset.target === 'p-cal') { renderAllTodo(); renderUndone(); }
-    if (tab.dataset.target === 'p-sport') { renderSportSession(); renderHistorySummary(); }
-    if (tab.dataset.target === 'p-care') { renderSkin(); }
+    switchTab(tab.dataset.target);
   });
 });
 $$('.subnav').forEach(nav => {
@@ -3594,7 +3940,7 @@ $$('.subnav').forEach(nav => {
     if (btn.textContent === '未完成') renderUndone();
     if (btn.textContent === '总代办') renderAllTodo();
     if (btn.textContent === '今日计划') renderSportSession();
-    if (btn.textContent === '身体状态') { renderBodyOptions(); renderBodyStateCard(); renderHistorySummary(); }
+    if (btn.textContent === '身体状态') { renderSportBodyStats(); renderHistorySummary(); renderActual(); }
     if (btn.textContent === '护肤') renderSkin();
   });
 });
@@ -3607,14 +3953,14 @@ document.addEventListener('click', e => {
     const t = new Date(); t.setHours(0,0,0,0);
     setPlanStart(t);
     buildCalendarFromPlans();
-    renderSportAll(); renderCalendar(); renderAllTodo(); renderUndone();
+    renderSportAll(); renderCalendar(); renderAllTodo(); renderUndone(); renderHomeTimeline();
     return;
   }
   if (e.target.closest('#shiftPlanStartBtn')) {
     const t = new Date(PLAN_START); t.setDate(t.getDate() + 7);
     setPlanStart(t);
     buildCalendarFromPlans();
-    renderSportAll(); renderCalendar(); renderAllTodo(); renderUndone();
+    renderSportAll(); renderCalendar(); renderAllTodo(); renderUndone(); renderHomeTimeline();
     return;
   }
   if (e.target.closest('#backToTodayBtn')) {
@@ -3675,7 +4021,7 @@ document.addEventListener('click', e => {
         if (!saved[payload.date].length) delete saved[payload.date];
         saveManualTodos(saved);
       }
-      buildCalendarFromPlans(); renderCalendar(); renderAllTodo(); renderUndone();
+      buildCalendarFromPlans(); renderCalendar(); renderAllTodo(); renderUndone(); renderHomeTimeline();
     } catch(err){ console.error(err); }
     return;
   }
@@ -3830,7 +4176,7 @@ document.addEventListener('click', e => {
     const mode = opt.dataset.mode;
     const today = new Date(); today.setHours(0,0,0,0);
     if (mode === 'original') setOverride(today, null); else setOverride(today, mode);
-    buildCalendarFromPlans(); renderSportAll(); renderCalendar(); renderAllTodo(); renderUndone(); return;
+    buildCalendarFromPlans(); renderSportAll(); renderCalendar(); renderAllTodo(); renderUndone(); renderHomeTimeline(); return;
   }
   const c = e.target.closest('.check');
   if (c && !c.closest('[data-toggle-todo]')) {
@@ -3937,7 +4283,7 @@ document.addEventListener('change', e => {
     try {
       setPlanStart(new Date(v + 'T00:00:00'));
       buildCalendarFromPlans();
-      renderSportAll(); renderCalendar(); renderAllTodo(); renderUndone();
+      renderSportAll(); renderCalendar(); renderAllTodo(); renderUndone(); renderHomeTimeline();
     } catch(err){ console.error(err); }
     return;
   }
@@ -4055,7 +4401,7 @@ function checkDayChange(){
   checkSkinStateDailyReset();
   renderSportAll(); renderSkin(); renderSupplements();
   renderCalendar(); renderAllTodo(); renderUndone();
-  renderMoney();
+  renderMoney(); renderHomeDate(); renderHomeTimeline();
 }
 
 /* ===== 启动 ===== */
@@ -4066,6 +4412,7 @@ function init(){
   renderFreeSlots(); renderFreeOptions(); renderCalendar(); renderAllTodo();
   renderUndone(); renderProfile(); checkSkinStateDailyReset(); renderSkin(); renderSupplements();
   initCropDrag(); updatePreview(); recordTodayBody();
+  renderHomeDate(); renderHomeTimeline();
 
   preloadAllImages().then(() => {
     renderLibrary(); renderAIMatch();
@@ -4920,7 +5267,7 @@ init();
       if (now - window.__lastSitReminder < 30 * 60 * 1000) return;
       window.__lastSitReminder = now;
       window.__appStorageSet('last_sit_reminder', String(now));
-      if (typeof showCenterTimer === 'function') showCenterTimer(90);
+      if (typeof showCenterTimer === 'function') showCenterTimer(200);
       sendNotification('该站起来走动了', '起身 → 走动2–3分钟 → 下巴轻收5次 → 肩胛向后下轻收5–8次');
     }, 60 * 1000);
   }
@@ -5141,7 +5488,7 @@ init();
     if (e.target.closest('[data-open-settings]')) setTimeout(injectAppSettings, 150);
   }, true);
 
-  console.log('[Enhanced v4.1] 完整版已加载');
+  console.log('[Enhanced v4.4] 完整版已加载');
 })();
 </script>
 </body>
