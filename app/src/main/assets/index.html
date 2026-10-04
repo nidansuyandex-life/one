@@ -1106,6 +1106,15 @@ const imageDB = {
       tx.objectStore('images').delete(id);
       tx.oncomplete = res; tx.onerror = rej;
     });
+  },
+  async listAll(){
+    const db = await this.open();
+    return new Promise((res, rej) => {
+      const tx = db.transaction('images', 'readonly');
+      const r = tx.objectStore('images').getAll();
+      r.onsuccess = () => res(r.result || []);
+      r.onerror = rej;
+    });
   }
 };
 const imageCache = {};
@@ -1131,6 +1140,26 @@ async function preloadAllImages(){
 async function dataURLToBlob(dataURL){
   const res = await fetch(dataURL);
   return await res.blob();
+}
+/* blob <-> base64（用于备份） */
+function blobToBase64(blob){
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => {
+      const s = String(r.result || '');
+      const i = s.indexOf(',');
+      res(i >= 0 ? s.slice(i + 1) : s);
+    };
+    r.onerror = rej;
+    r.readAsDataURL(blob);
+  });
+}
+function base64ToBlob(b64, mime){
+  const m = mime || 'image/png';
+  const bin = atob(b64);
+  const arr = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+  return new Blob([arr], { type: m });
 }
 
 /* ===== 每日独立勾选状态 ===== */
@@ -3759,10 +3788,33 @@ function renderHomeDate(){
   const d = new Date();
   const el1 = document.getElementById('homeDate');
   if (el1) el1.textContent = `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日`;
+
+  // ===== 天气：从原生 AndroidBridge.getWeather() 获取 =====
   const el2 = document.getElementById('homeWeather');
-  if (el2 && !el2.textContent.trim()) el2.textContent = '☀️ 晴';
   const el3 = document.getElementById('homeTemp');
-  if (el3 && (!el3.textContent.trim() || el3.textContent.trim() === '--℃')) el3.textContent = '--℃';
+  let weatherOk = false;
+  try {
+    if (window.AndroidBridge && typeof AndroidBridge.getWeather === 'function') {
+      const raw = AndroidBridge.getWeather();
+      if (raw) {
+        const w = JSON.parse(raw);
+        if (w && typeof w.temp === 'number') {
+          const icon = w.icon || '☀️';
+          const desc = w.desc || '';
+          const city = w.city ? ` · ${w.city}` : '';
+          if (el2) el2.textContent = `${icon} ${desc}${city}`.trim();
+          if (el3) el3.textContent = `${Math.round(w.temp)}℃`;
+          weatherOk = true;
+        }
+      }
+    }
+  } catch(e) { console.warn('getWeather failed', e); }
+
+  if (!weatherOk) {
+    // 原生不可用时的占位
+    if (el2 && (!el2.textContent.trim() || el2.textContent.trim() === '☀️ 晴')) el2.textContent = '☀️ 晴';
+    if (el3 && (!el3.textContent.trim() || el3.textContent.trim() === '--℃')) el3.textContent = '--℃';
+  }
 
   // 衣着建议：按月份粗略判断
   const m = d.getMonth() + 1;
@@ -5167,21 +5219,43 @@ init();
     downloadCsv(rows, `记账记录_${todayStr()}.csv`);
   }
 
-  function exportBackup(){
+  /* ===== 导出备份：localStorage + 衣橱图片（IndexedDB → base64） ===== */
+  async function exportBackup(){
     let pack;
     try { pack = collectBackup(); } catch(e){ alert('读取数据失败：' + e.message); return; }
+
+    // 导出衣橱图片（IndexedDB 里的 blob → base64）
+    let imgCount = 0;
+    try {
+      const imgs = await imageDB.listAll();
+      const imgMap = {};
+      for (const it of imgs) {
+        if (!it || !it.id || !it.blob) continue;
+        try {
+          const b64 = await blobToBase64(it.blob);
+          imgMap[it.id] = { mime: it.blob.type || 'image/png', data: b64 };
+          imgCount++;
+        } catch(e){ console.warn('encode image failed', it.id, e); }
+      }
+      if (imgCount > 0) pack.images = imgMap;
+    } catch(e){ console.warn('export images failed', e); }
+
     const count = Object.keys(pack.data).length;
-    if (!count) { alert('暂无可导出的数据'); return; }
+    if (!count && imgCount === 0) { alert('暂无可导出的数据'); return; }
+
     const json = JSON.stringify(pack, null, 2);
     window.__appStorageSet('lastBackupAt', String(Date.now()));
+
+    const sizeMB = (json.length / 1024 / 1024).toFixed(2);
+    const tipMsg = `共 ${count} 项数据${imgCount > 0 ? ` + ${imgCount} 张衣橱图片` : ''}（约 ${sizeMB} MB）`;
 
     try {
       if (window.AndroidBridge && typeof AndroidBridge.saveBackup === 'function') {
         AndroidBridge.saveBackup(json);
-        alert(`已导出 ${count} 项数据。`);
+        alert(`已导出：${tipMsg}`);
         return;
       }
-    } catch(e){}
+    } catch(e){ console.warn('native saveBackup failed', e); }
 
     let downloaded = false;
     try {
@@ -5201,25 +5275,47 @@ init();
       ta.style.display = 'block';
       try { ta.focus(); ta.select(); } catch(e){}
     }
-    if (downloaded) alert(`已生成备份文件（共 ${count} 项数据）。`);
-    else alert(`已在下方生成备份文本（共 ${count} 项数据），请长按复制。`);
+    if (downloaded) alert(`已生成备份文件：${tipMsg}`);
+    else alert(`已在下方生成备份文本：${tipMsg}，请长按复制。`);
   }
 
+  /* ===== 导入备份：localStorage + 衣橱图片（base64 → IndexedDB） ===== */
   function importBackup(file){
     const reader = new FileReader();
-    reader.onload = function(ev){
+    reader.onload = async function(ev){
       let pack;
       try { pack = JSON.parse(ev.target.result); }
       catch(e){ alert('文件格式错误'); return; }
       const data = pack && pack.data;
       if (!data) { alert('备份文件内容无效'); return; }
       const keys = Object.keys(data);
-      if (!keys.length) { alert('备份文件为空'); return; }
-      if (!confirm(`将导入 ${keys.length} 项数据，覆盖当前记录。确定继续？`)) return;
+      const imgKeys = (pack && pack.images && typeof pack.images === 'object') ? Object.keys(pack.images) : [];
+      if (!keys.length && !imgKeys.length) { alert('备份文件为空'); return; }
+      if (!confirm(`将导入 ${keys.length} 项数据${imgKeys.length ? ` + ${imgKeys.length} 张衣橱图片` : ''}，覆盖当前记录。确定继续？`)) return;
+
+      // 1. 先恢复 localStorage 数据
       let ok = 0;
       keys.forEach(k => { try { window.__appStorageSet(k, data[k]); ok++; } catch(e){} });
+
+      // 2. 恢复 IndexedDB 里的图片
+      let imgOk = 0;
+      if (imgKeys.length) {
+        for (const id of imgKeys) {
+          try {
+            const item = pack.images[id];
+            // 兼容两种格式：{mime, data} 或直接 base64 字符串
+            const b64 = (item && typeof item === 'object') ? item.data : item;
+            const mime = (item && typeof item === 'object') ? item.mime : 'image/png';
+            if (!b64) continue;
+            const blob = base64ToBlob(b64, mime);
+            await imageDB.put(id, blob);
+            imgOk++;
+          } catch(e){ console.warn('restore image failed', id, e); }
+        }
+      }
+
       window.__appStorageSet('lastBackupAt', String(Date.now()));
-      alert(`已恢复 ${ok} 项数据。请重启 App。`);
+      alert(`已恢复 ${ok} 项数据${imgOk ? ` + ${imgOk} 张图片` : ''}。App 将重启。`);
       setTimeout(() => { try { location.reload(); } catch(e){} }, 1000);
     };
     reader.readAsText(file);
@@ -5305,10 +5401,10 @@ init();
         '<option value="0"' + (!sport?' selected':'') + '>关</option></select></div>' +
       '<p style="font-size:11.5px;color:#8A90A2;margin-top:8px;line-height:1.6">久坐提醒：App 在前台时每 30 分钟弹一次。语音时长修改后立即生效。</p>' +
       '<div style="font-size:12px;font-weight:700;color:#8A90A2;letter-spacing:.5px;margin:20px 0 8px;padding-top:16px;border-top:1px solid #EDEFF5">数据备份</div>' +
-      '<button id="exportDataBtn" style="width:100%;border:none;font-family:inherit;font-size:14px;font-weight:600;color:#fff;padding:13px;border-radius:12px;cursor:pointer;background:linear-gradient(135deg,#8B7CF6,#B39BFF);margin-bottom:8px">⬇️ 导出数据备份（JSON）</button>' +
+      '<button id="exportDataBtn" style="width:100%;border:none;font-family:inherit;font-size:14px;font-weight:600;color:#fff;padding:13px;border-radius:12px;cursor:pointer;background:linear-gradient(135deg,#8B7CF6,#B39BFF);margin-bottom:8px">⬇️ 导出数据备份（JSON，含衣橱图片）</button>' +
       '<label for="importDataFile" style="display:block;text-align:center;width:100%;border:1.5px solid #E3E6EF;font-family:inherit;font-size:14px;font-weight:600;color:#5A6175;padding:12px;border-radius:12px;cursor:pointer;background:#fff;box-sizing:border-box">⬆️ 导入备份文件</label>' +
       '<input type="file" id="importDataFile" accept=".json,application/json" style="display:none">' +
-      '<p style="font-size:11.5px;color:#8A90A2;margin-top:8px;line-height:1.6">建议每 30 天导出一次。</p>' +
+      '<p style="font-size:11.5px;color:#8A90A2;margin-top:8px;line-height:1.6">包含记账、日历、运动打卡、衣橱（含图片）、护肤、补剂、设置等。图片会显著增大文件体积，建议每 30 天导出一次。</p>' +
       '<textarea id="backupTextBox" readonly placeholder="点击上方按钮后，备份内容会显示在这里" style="display:none;width:100%;height:150px;margin-top:10px;border:1.5px solid #E3E6EF;border-radius:10px;padding:10px;font-size:11px;font-family:monospace;line-height:1.5;color:#3A4152;background:#fff;outline:none;box-sizing:border-box"></textarea>' +
       '<div style="font-size:12px;font-weight:700;color:#8A90A2;letter-spacing:.5px;margin:20px 0 8px;padding-top:16px;border-top:1px solid #EDEFF5">健康报告</div>' +
       '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">' +
@@ -5488,7 +5584,7 @@ init();
     if (e.target.closest('[data-open-settings]')) setTimeout(injectAppSettings, 150);
   }, true);
 
-  console.log('[Enhanced v4.4] 完整版已加载');
+  console.log('[Enhanced v4.5] 完整版已加载（含天气 + 图片备份）');
 })();
 </script>
 </body>
