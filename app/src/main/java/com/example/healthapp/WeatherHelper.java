@@ -8,14 +8,12 @@ import android.content.pm.PackageManager;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
 import android.webkit.WebView;
-
-import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
 
 import org.json.JSONObject;
 
@@ -29,10 +27,10 @@ public class WeatherHelper {
     private static final String TAG = "WeatherHelper";
     private static final int REQ_LOCATION = 1001;
 
-    /** 和风天气 Key（你的 API KEY） */
+    /** 和风天气 API KEY */
     private static final String QWEATHER_KEY = "c623ca2743e74883a3ead88b8a4170ec";
 
-    /** 和风天气 API Host（你账号专属） */
+    /** 和风天气专属 API Host */
     private static final String QWEATHER_HOST = "https://nr3qquchga.re.qweatherapi.com";
 
     private final Context ctx;
@@ -51,51 +49,49 @@ public class WeatherHelper {
         return prefs.getString("weather_json", null);
     }
 
-    /** 主动刷新天气（H5 可调，Activity 也能调） */
+    /** 主动刷新天气 */
     public void refresh() {
         if (hasLocationPermission()) {
             requestByLocation();
         } else {
-            // 没权限：先用 IP 定位兜底，同时弹框请求权限
             requestByIp();
             requestLocationPermission();
         }
     }
 
-    // ---------------- 系统定位 ----------------
+    // ---------------- 权限 ----------------
 
     private boolean hasLocationPermission() {
-        return ContextCompat.checkSelfPermission(ctx,
-                Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+        if (Build.VERSION.SDK_INT < 23) return true;
+        return ctx.checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION)
+                == PackageManager.PERMISSION_GRANTED;
     }
 
     private void requestLocationPermission() {
-        if (ctx instanceof Activity) {
-            ActivityCompat.requestPermissions((Activity) ctx,
-                    new String[]{
-                            Manifest.permission.ACCESS_COARSE_LOCATION,
-                            Manifest.permission.ACCESS_FINE_LOCATION
-                    }, REQ_LOCATION);
+        if (Build.VERSION.SDK_INT >= 23 && ctx instanceof Activity) {
+            ((Activity) ctx).requestPermissions(new String[]{
+                    Manifest.permission.ACCESS_COARSE_LOCATION,
+                    Manifest.permission.ACCESS_FINE_LOCATION
+            }, REQ_LOCATION);
         }
     }
 
-    /** Activity 里复写 onRequestPermissionsResult 后调这个方法 */
     public void onPermissionResult(boolean granted) {
         if (granted) requestByLocation();
         else requestByIp();
     }
+
+    // ---------------- 系统定位 ----------------
 
     private void requestByLocation() {
         LocationManager lm = (LocationManager) ctx.getSystemService(Context.LOCATION_SERVICE);
         if (lm == null) { requestByIp(); return; }
 
         try {
-            // 1) 先看有没有上次的位置，秒回
             Location last = lm.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
             if (last == null) last = lm.getLastKnownLocation(LocationManager.GPS_PROVIDER);
             if (last != null) fetchWeatherByCoord(last.getLongitude(), last.getLatitude());
 
-            // 2) 再请求一次单次定位
             lm.requestSingleUpdate(LocationManager.NETWORK_PROVIDER, new LocationListener() {
                 @Override public void onLocationChanged(Location location) {
                     fetchWeatherByCoord(location.getLongitude(), location.getLatitude());
@@ -103,7 +99,7 @@ public class WeatherHelper {
                 @Override public void onStatusChanged(String provider, int status, Bundle extras) {}
                 @Override public void onProviderEnabled(String provider) {}
                 @Override public void onProviderDisabled(String provider) {
-                    requestByIp();  // 定位被关了，回退到 IP
+                    requestByIp();
                 }
             }, main);
 
@@ -121,8 +117,7 @@ public class WeatherHelper {
     private void requestByIp() {
         new Thread(() -> {
             try {
-                String ipUrl = "https://ipapi.co/json/";
-                String body = httpGet(ipUrl);
+                String body = httpGet("https://ipapi.co/json/");
                 if (body == null) return;
                 JSONObject obj = new JSONObject(body);
                 double lat = obj.optDouble("latitude", Double.NaN);
