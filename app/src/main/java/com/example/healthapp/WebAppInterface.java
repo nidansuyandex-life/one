@@ -1,75 +1,98 @@
 package com.example.healthapp;
 
-import android.annotation.SuppressLint;
-import android.content.pm.PackageManager;
-import android.os.Bundle;
-import android.webkit.WebSettings;
-import android.webkit.WebView;
-import android.webkit.WebViewClient;
+import android.content.Context;
+import android.content.SharedPreferences;
+import android.webkit.JavascriptInterface;
 
-import androidx.annotation.NonNull;
-import androidx.appcompat.app.AppCompatActivity;
+public class WebAppInterface {
 
-public class MainActivity extends AppCompatActivity {
+    private final Context ctx;
+    private final SharedPreferences prefs;
+    private final WeatherHelper weather;
 
-    private WebView webView;
-    private WeatherHelper weatherHelper;
-
-    @SuppressLint("SetJavaScriptEnabled")
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-
-        webView = new WebView(this);
-        setContentView(webView);
-
-        WebSettings s = webView.getSettings();
-        s.setJavaScriptEnabled(true);
-        s.setDomStorageEnabled(true);
-        s.setDatabaseEnabled(true);
-        s.setAllowFileAccess(true);
-        s.setAllowContentAccess(true);
-        s.setMediaPlaybackRequiresUserGesture(false);
-        s.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
-
-        weatherHelper = new WeatherHelper(this, webView);
-        webView.addJavascriptInterface(
-                new WebAppInterface(this, weatherHelper), "AndroidBridge");
-
-        webView.setWebViewClient(new WebViewClient() {
-            @Override
-            public void onPageFinished(WebView view, String url) {
-                weatherHelper.refresh();
-            }
-        });
-
-        webView.loadUrl("file:///android_asset/index.html");
+    public WebAppInterface(Context ctx, WeatherHelper weather) {
+        this.ctx = ctx;
+        this.weather = weather;
+        this.prefs = ctx.getSharedPreferences("app", Context.MODE_PRIVATE);
     }
 
-    @Override
-    public void onRequestPermissionsResult(int requestCode,
-                                           @NonNull String[] permissions,
-                                           @NonNull int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == 1001) {
-            boolean granted = grantResults.length > 0
-                    && grantResults[0] == PackageManager.PERMISSION_GRANTED;
-            if (weatherHelper != null) weatherHelper.onPermissionResult(granted);
-        }
+    // ---------- 天气 ----------
+
+    @JavascriptInterface
+    public String getWeather() {
+        return weather.getCachedWeather();
     }
 
-    @Override
-    protected void onResume() {
-        super.onResume();
-        if (weatherHelper != null) weatherHelper.refresh();
+    @JavascriptInterface
+    public void refreshWeather() {
+        weather.refresh();
     }
 
-    @Override
-    public void onBackPressed() {
-        if (webView != null && webView.canGoBack()) {
-            webView.goBack();
-        } else {
-            super.onBackPressed();
-        }
+    // ---------- 存储桥接 ----------
+
+    @JavascriptInterface
+    public void save(String key, String value) {
+        prefs.edit().putString(key, value).apply();
     }
+
+    @JavascriptInterface
+    public String load(String key) {
+        return prefs.getString(key, null);
+    }
+
+    @JavascriptInterface
+    public void remove(String key) {
+        prefs.edit().remove(key).apply();
+    }
+
+    // ---------- 语音（HTML 里会调，暂留空实现，界面自动走浏览器识别兜底） ----------
+
+    @JavascriptInterface
+    public void startVoice() {
+        // 如需接入原生语音识别，完成后调用：
+        // webView.evaluateJavascript("window.onNativeSpeechResult('识别文本')", null);
+        // 出错时：window.onNativeSpeechError('错误信息')
+    }
+
+    @JavascriptInterface
+    public void stopVoice() { }
+
+    // ---------- 声音 / 振动 ----------
+
+    @JavascriptInterface
+    public void speak(String text) { }
+
+    @JavascriptInterface
+    public void vibrate() { }
+
+    // ---------- 设置开关 ----------
+
+    @JavascriptInterface
+    public void setSitReminder(boolean on) {
+        prefs.edit().putBoolean("sit_reminder", on).apply();
+    }
+
+    @JavascriptInterface
+    public void setBackupReminder(boolean on) {
+        prefs.edit().putBoolean("backup_reminder", on).apply();
+    }
+
+    // ---------- 备份 ----------
+
+    @JavascriptInterface
+    public void saveBackup(String json) { }
+
+    @JavascriptInterface
+    public String listBackups() { return "[]"; }
+
+    @JavascriptInterface
+    public String readBackup(String date) { return null; }
+
+    // ---------- AI（HTML 里会调，暂留空，界面会给出提示） ----------
+
+    @JavascriptInterface
+    public void sendChat(String payload) { }
+
+    @JavascriptInterface
+    public void sendStyling(String payload) { }
 }
