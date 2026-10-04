@@ -29,8 +29,11 @@ public class WeatherHelper {
     private static final String TAG = "WeatherHelper";
     private static final int REQ_LOCATION = 1001;
 
-    /** 去 https://dev.qweather.com 免费申请，替换成你自己的 Key */
-    private static final String QWEATHER_KEY = "把你的和风天气KEY填这里";
+    /** 和风天气 Key（你的 API KEY） */
+    private static final String QWEATHER_KEY = "c623ca2743e74883a3ead88b8a4170ec";
+
+    /** 和风天气 API Host（你账号专属） */
+    private static final String QWEATHER_HOST = "https://nr3qquchga.re.qweatherapi.com";
 
     private final Context ctx;
     private final WebView webView;
@@ -118,7 +121,6 @@ public class WeatherHelper {
     private void requestByIp() {
         new Thread(() -> {
             try {
-                // ipapi.co 免费、无需 key，返回 lat/lon/city
                 String ipUrl = "https://ipapi.co/json/";
                 String body = httpGet(ipUrl);
                 if (body == null) return;
@@ -143,7 +145,7 @@ public class WeatherHelper {
     private void fetchWeatherByCoord(double lon, double lat, String cityHint) {
         new Thread(() -> {
             try {
-                String url = "https://devapi.qweather.com/v7/weather/now?location="
+                String url = QWEATHER_HOST + "/v7/weather/now?location="
                         + lon + "," + lat + "&key=" + QWEATHER_KEY;
                 String body = httpGet(url);
                 if (body == null) return;
