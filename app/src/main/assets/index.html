@@ -464,7 +464,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue"
           </div>
           <div class="right">
             <div class="date" id="homeDate">—</div>
-            <div class="weather" id="homeWeather">☀️ 晴</div>
+            <div class="weather" id="homeWeather">☀️ 加载中…</div>
             <div class="temp" id="homeTemp">--℃</div>
           </div>
         </div>
@@ -1004,6 +1004,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue"
 </div>
 
 <script>
+/* ===== 和风天气配置 ===== */
+const QWEATHER_KEY = 'c623ca2743e74883a3ead88b8a4170ec';
+const QWEATHER_HOST = 'https://devapi.qweather.com';
+
 /* ===== 崩溃日志捕获 ===== */
 (function(){
   function report(msg, stack){
@@ -1141,7 +1145,6 @@ async function dataURLToBlob(dataURL){
   const res = await fetch(dataURL);
   return await res.blob();
 }
-/* blob <-> base64（用于备份） */
 function blobToBase64(blob){
   return new Promise((res, rej) => {
     const r = new FileReader();
@@ -1423,7 +1426,6 @@ const EXERCISES = {
   '肩胛放松': { name:'肩胛放松', purpose:'肩部放松', start:'双手自然垂下。', how:'做几次肩膀放松。', breath:'自然呼吸。', mistake:'大幅度颈部拉伸。', feel:'肩部放松。', note:'不要做大幅度颈部拉伸。' }
 };
 
-/* MET 系数 */
 function getMetForExercise(code){
   const c = String(code || '');
   if (/拉伸|放松|婴儿式|猫牛|呼吸|下巴|肩胛绕环|颈深屈肌|筋膜球/.test(c)) return 1.8;
@@ -1813,7 +1815,6 @@ function getCatList(type){
   const custom = (state.customCats && state.customCats[type]) || [];
   return [...base, ...custom.filter(c => !base.includes(c))];
 }
-/* ===== 中文金额解析 ===== */
 function parseChineseAmount(str){
   const cn = { '零':'0','一':'1','二':'2','两':'2','三':'3','四':'4','五':'5','六':'6','七':'7','八':'8','九':'9' };
   let s = String(str || '');
@@ -3350,30 +3351,6 @@ function renderBodyStateCard(){
   if (!p.isTraining) { el.innerHTML = `<div class="card-title">休息日 <span class="tag on">恢复</span></div><p class="tip">今日完全休息，后续训练自动顺延。</p>`; return; }
   el.innerHTML = `<div class="card-title">状态正常 <span class="tag on">可正常训练</span></div><p class="tip">按计划执行，RPE 控制在 5–8。</p>`;
 }
-function buildTimeline(p){
-  const now = new Date();
-  const sess = getSportSession();
-  const el = $('#actualDateLabel');
-  if (el) el.textContent = `${now.getMonth()+1} 月 ${now.getDate()} 日`;
-  const startLabel = sess ? (sess.startLabel || fmtTime(new Date(sess.startTs))) : '19:30';
-  if (!p.isTraining) {
-    return [
-      { time:'07:00', title:'晨间 90/90 呼吸', desc:'5 次' },
-      { time:'12:30', title:'午间放松', desc:'肩颈轻柔活动' },
-      { time:'19:30', title:p.label, desc:p.summary },
-      { time:'22:30', title:'睡前 90/90 呼吸', desc:'5 次' }
-    ];
-  }
-  const items = [];
-  if (sess) items.push({ time: startLabel, title:'▶ 打卡开始', desc:'已记录开始时间' });
-  items.push({ time: startLabel, title:'热身', desc:`${p.warmup.length} 个动作` });
-  items.push({ time: startLabel, title:p.label, desc:`主训练 · ${p.duration}` });
-  items.push({ time:'—', title:'🥤 蛋白粉 20–25g', desc:'训练后' });
-  items.push({ time:'—', title:'训练后拉伸', desc:`${p.stretch.length} 个动作` });
-  if (sess && sess.endTs) items.push({ time: fmtTime(new Date(sess.endTs)), title:'■ 打卡结束', desc:'训练完成' });
-  items.push({ time:'22:30', title:'睡前 90/90 呼吸', desc:'5 次' });
-  return items;
-}
 function estimateBurn(p){
   if (!p.isTraining) return { kcal: 0, target: 0, pct: 0, doneSets: 0, totalSets: 0 };
   const w = Number(body.weight) || 55;
@@ -3626,7 +3603,7 @@ function playBeep(){
   try { const ctx = new (window.AudioContext || window.webkitAudioContext)(); const o = ctx.createOscillator(), g = ctx.createGain(); o.connect(g); g.connect(ctx.destination); o.frequency.value = 880; o.type = 'sine'; g.gain.setValueAtTime(0.3, ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.8); o.start(); o.stop(ctx.currentTime + 0.8); } catch(e){}
 }
 
-/* ===== 久坐提醒（时间戳驱动 · 支持后台继续走） ===== */
+/* ===== 久坐提醒 ===== */
 let centerTimerEndTs = 0;
 let centerTimerHandle = null;
 let centerTimerActive = false;
@@ -3770,7 +3747,6 @@ let suppressClickUntil = 0;
 function suppressClicks(ms){ suppressClickUntil = Date.now() + (ms || 600); }
 function isSuppressed(){ return Date.now() < suppressClickUntil; }
 
-/* 关闭所有 sheet，避免多个面板叠层 */
 function closeAllSheets(){
   ['settingsSheet','todoSheet','pickSheet','prodSheet'].forEach(id => {
     const el = document.getElementById(id);
@@ -3783,38 +3759,188 @@ function closeAllSheets(){
   state.pickingSkinStep = null;
 }
 
+/* ===== 天气（完整版） ===== */
+let weatherTries = 0;
+let weatherResolved = false;
+
+/* 和风图标码 → emoji */
+function qweatherIcon(code){
+  const c = parseInt(code, 10);
+  if (c === 100) return '☀️';
+  if (c === 101 || c === 102 || c === 103) return '⛅';
+  if (c === 104) return '☁️';
+  if (c >= 150 && c <= 153) return '🌙';
+  if (c >= 300 && c <= 399) return '🌧️';
+  if (c >= 400 && c <= 499) return '❄️';
+  if (c >= 500 && c <= 515) return '🌫️';
+  return '☀️';
+}
+
+function applyWeather(w){
+  if (!w || w.temp == null) return false;
+  const temp = Number(w.temp);
+  if (isNaN(temp)) return false;
+  const el2 = document.getElementById('homeWeather');
+  const el3 = document.getElementById('homeTemp');
+  const icon = w.icon || '☀️';
+  const desc = w.desc || '';
+  const city = w.city ? ` · ${w.city}` : '';
+  if (el2) el2.textContent = `${icon} ${desc}${city}`.trim();
+  if (el3) el3.textContent = `${Math.round(temp)}℃`;
+  try { Store.save('weatherCache', { temp, icon, desc, city: w.city || '', ts: Date.now() }); } catch(e){}
+  weatherResolved = true;
+  return true;
+}
+
+/* 用浏览器 Geolocation 拿坐标；失败返回 null */
+function getBrowserCoords(){
+  return new Promise(resolve => {
+    if (!navigator.geolocation) return resolve(null);
+    const timer = setTimeout(() => resolve(null), 5000);
+    navigator.geolocation.getCurrentPosition(
+      pos => { clearTimeout(timer); resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude }); },
+      () => { clearTimeout(timer); resolve(null); },
+      { enableHighAccuracy: false, timeout: 4500, maximumAge: 10 * 60 * 1000 }
+    );
+  });
+}
+
+/* 通过 IP 拿城市坐标（无需权限，做兜底） */
+async function getIpCoords(){
+  try {
+    const r = await fetch('https://ipapi.co/json/');
+    if (!r.ok) return null;
+    const j = await r.json();
+    if (j && typeof j.latitude === 'number' && typeof j.longitude === 'number') {
+      return { lat: j.latitude, lon: j.longitude, city: j.city || '' };
+    }
+  } catch(e){}
+  try {
+    const r2 = await fetch('https://ipwho.is/');
+    if (r2.ok) {
+      const j2 = await r2.json();
+      if (j2 && j2.success !== false && j2.latitude && j2.longitude) {
+        return { lat: j2.latitude, lon: j2.longitude, city: j2.city || '' };
+      }
+    }
+  } catch(e){}
+  return null;
+}
+
+/* 调和风天气拿实时天气 */
+async function fetchQWeather(lat, lon){
+  const url = `${QWEATHER_HOST}/v7/weather/now?location=${lon.toFixed(4)},${lat.toFixed(4)}&key=${QWEATHER_KEY}`;
+  const r = await fetch(url);
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  const j = await r.json();
+  if (!j || j.code !== '200') throw new Error('和风code=' + (j && j.code));
+  const now = j.now || {};
+  return {
+    temp: parseInt(now.temp, 10),
+    desc: now.text || '',
+    icon: qweatherIcon(now.icon)
+  };
+}
+
+/* JS 端直连天气（原生不可用时兜底） */
+async function jsFetchWeather(){
+  try {
+    let coords = await getBrowserCoords();
+    let city = '';
+    if (!coords) {
+      const ip = await getIpCoords();
+      if (!ip) { weatherFail(); return; }
+      coords = ip;
+      city = ip.city || '';
+    }
+    const w = await fetchQWeather(coords.lat, coords.lon);
+    if (city) w.city = city;
+    applyWeather(w);
+  } catch(e) {
+    console.warn('jsFetchWeather failed', e);
+    weatherFail();
+  }
+}
+
+function weatherFail(){
+  const el2 = document.getElementById('homeWeather');
+  const el3 = document.getElementById('homeTemp');
+  if (el2) el2.textContent = '☀️ 天气获取失败';
+  if (el3) el3.textContent = '--℃';
+}
+
+function renderWeather(){
+  weatherResolved = false;
+  const el2 = document.getElementById('homeWeather');
+  const el3 = document.getElementById('homeTemp');
+
+  // 1) 尝试原生同步缓存
+  let raw = null;
+  try {
+    if (window.AndroidBridge && typeof AndroidBridge.getWeather === 'function') {
+      raw = AndroidBridge.getWeather();
+    }
+  } catch(e){ raw = null; }
+
+  if (raw) {
+    let w = null;
+    try { w = (typeof raw === 'string') ? JSON.parse(raw) : raw; } catch(e){ w = null; }
+    if (applyWeather(w)) {
+      // 让原生后台刷新一次（拿到新数据会通过 onWeatherUpdate 推回来）
+      try { if (window.AndroidBridge && typeof AndroidBridge.refreshWeather === 'function') AndroidBridge.refreshWeather(); } catch(e){}
+      return;
+    }
+  }
+
+  // 2) 本地缓存兜底（1 小时内有效）
+  const cached = Store.load('weatherCache', null);
+  if (cached && cached.ts && (Date.now() - cached.ts) < 3600 * 1000) {
+    applyWeather(cached);
+  }
+
+  // 3) 让原生去刷新，等待 onWeatherUpdate 推送；同时 3 秒后若没结果，用 JS 直连兜底
+  let nativeCalled = false;
+  try {
+    if (window.AndroidBridge && typeof AndroidBridge.refreshWeather === 'function') {
+      AndroidBridge.refreshWeather();
+      nativeCalled = true;
+    }
+  } catch(e){}
+
+  if (nativeCalled) {
+    setTimeout(() => {
+      if (!weatherResolved) jsFetchWeather();
+    }, 3000);
+  } else {
+    // 没有原生，直接 JS 请求
+    jsFetchWeather();
+  }
+}
+
+/* 原生异步推送 */
+window.onWeatherUpdate = function(w){
+  if (typeof w === 'string') {
+    try { w = JSON.parse(w); } catch(e){ return; }
+  }
+  applyWeather(w);
+};
+
+/* 回到前台时刷新 */
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    weatherTries = 0;
+    renderWeather();
+  }
+});
+
 /* ===== 首页 ===== */
 function renderHomeDate(){
   const d = new Date();
   const el1 = document.getElementById('homeDate');
   if (el1) el1.textContent = `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日`;
 
-  // ===== 天气：从原生 AndroidBridge.getWeather() 获取 =====
-  const el2 = document.getElementById('homeWeather');
-  const el3 = document.getElementById('homeTemp');
-  let weatherOk = false;
-  try {
-    if (window.AndroidBridge && typeof AndroidBridge.getWeather === 'function') {
-      const raw = AndroidBridge.getWeather();
-      if (raw) {
-        const w = JSON.parse(raw);
-        if (w && typeof w.temp === 'number') {
-          const icon = w.icon || '☀️';
-          const desc = w.desc || '';
-          const city = w.city ? ` · ${w.city}` : '';
-          if (el2) el2.textContent = `${icon} ${desc}${city}`.trim();
-          if (el3) el3.textContent = `${Math.round(w.temp)}℃`;
-          weatherOk = true;
-        }
-      }
-    }
-  } catch(e) { console.warn('getWeather failed', e); }
-
-  if (!weatherOk) {
-    // 原生不可用时的占位
-    if (el2 && (!el2.textContent.trim() || el2.textContent.trim() === '☀️ 晴')) el2.textContent = '☀️ 晴';
-    if (el3 && (!el3.textContent.trim() || el3.textContent.trim() === '--℃')) el3.textContent = '--℃';
-  }
+  // 天气（完整逻辑在 renderWeather 里）
+  renderWeather();
 
   // 衣着建议：按月份粗略判断
   const m = d.getMonth() + 1;
@@ -3846,7 +3972,6 @@ function renderHomeTimeline(){
   const manualTodos = ((state.calendarData[t] || []).filter(x => x.manual)).slice();
   manualTodos.sort((a,b) => (a.time||'').localeCompare(b.time||''));
 
-  // 今日运动状态：根据身体状态选择动态显示
   const ov = getOverride(new Date());
   const ovMap = {
     swim: '游泳',
@@ -3860,7 +3985,6 @@ function renderHomeTimeline(){
   else {
     try { sportText = currentPlan().label; } catch(e){ sportText = '运动'; }
   }
-  // 只有训练日（正常/游泳/减量）才显示蛋白粉提示；休息 / 经期 / 请假不显示
   let isTrainingDay = false;
   try { isTrainingDay = currentPlan().isTraining; } catch(e){ isTrainingDay = false; }
 
@@ -3898,7 +4022,6 @@ function renderHomeTimeline(){
   }).join('');
 }
 
-/* 从首页跳转（用纯 DOM 切 tab，避免合成 click 误触发其它面板） */
 function switchTab(target){
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.target === target));
   document.querySelectorAll('.page').forEach(p => p.classList.toggle('active', p.id === target));
@@ -3914,9 +4037,7 @@ function switchTab(target){
 }
 
 function jumpFromHome(action){
-  // 关闭所有已打开的 sheet，避免叠层
   closeAllSheets();
-  // 跳转后短时间内屏蔽其他 click，避免触摸-点击合成事件误触
   suppressClicks(900);
 
   const goCareSubTab = (label, cardId) => {
@@ -3933,7 +4054,6 @@ function jumpFromHome(action){
         setTimeout(() => {
           const el = document.getElementById(cardId);
           if (!el) return;
-          // 直接设置 scrollTop（不用平滑滚动），避免滚动中误触发新元素
           const scroller = el.closest('.scroll');
           if (scroller){
             const eRect = el.getBoundingClientRect();
@@ -3956,7 +4076,6 @@ function jumpFromHome(action){
   if (action === 'sport'){ switchTab('p-sport'); return; }
 }
 
-/* 首页时间线点击（捕获阶段拦截，阻止事件继续传播到其它 handler） */
 document.addEventListener('click', e => {
   const tl = e.target.closest('[data-home-action]');
   if (!tl) return;
@@ -4480,20 +4599,13 @@ function init(){
     }
   } catch(err){ console.warn('sync settings to android failed', err); }
 
-  try {
-    if (window.AndroidBridge && typeof AndroidBridge.saveDailyBackup === 'function' && window.__collectBackup) {
-      const pack = window.__collectBackup();
-      AndroidBridge.saveDailyBackup(JSON.stringify(pack));
-    }
-  } catch(e) { console.warn('daily backup failed', e); }
-
   setInterval(() => { cleanupOldChecks(); cleanupOldSets(); cleanupOldSportSessions(); }, 5 * 60 * 1000);
   setInterval(checkDayChange, 60 * 1000);
   setInterval(updateSportTimerText, 1000);
 }
 init();
 
-/* ========== AI 聊天 + AI 搭配 ========== */
+/* ========== AI 聊天 ========== */
 (function(){
   const chatPanel = document.getElementById('chatPanel');
   const chatBody = document.getElementById('chatBody');
@@ -4781,810 +4893,6 @@ init();
 
   loadHistory();
   renderAll();
-})();
-
-/* ========== 周报 / 月报 ========== */
-(function(){
-  const reportPanel = document.getElementById('reportPanel');
-  const reportBody = document.getElementById('reportBody');
-  const reportCloseBtn = document.getElementById('reportCloseBtn');
-  const reportHistoryBtn = document.getElementById('reportHistoryBtn');
-  const reportHeaderTitle = document.getElementById('reportHeaderTitle');
-  if (!reportPanel) return;
-
-  function getWeekRange(offset){
-    const now = new Date(); now.setHours(0,0,0,0);
-    const dow = (now.getDay() + 6) % 7;
-    const mon = new Date(now); mon.setDate(mon.getDate() - dow + offset * 7);
-    const sun = new Date(mon); sun.setDate(sun.getDate() + 6);
-    return { start: fmtDate(mon), end: fmtDate(sun), startD: mon, endD: sun };
-  }
-  function getMonthRange(offset){
-    const now = new Date(); now.setHours(0,0,0,0);
-    const y = now.getFullYear(), m = now.getMonth() + offset;
-    const first = new Date(y, m, 1);
-    const last = new Date(y, m + 1, 0);
-    return { start: fmtDate(first), end: fmtDate(last), startD: first, endD: last, label: `${first.getFullYear()}年${first.getMonth()+1}月` };
-  }
-  function inRange(dateStr, range){
-    return dateStr >= range.start && dateStr <= range.end;
-  }
-
-  function collectStats(range){
-    const sessions = getSportSessions();
-    let sportCount = 0, sportMin = 0;
-    Object.keys(sessions).forEach(d => {
-      if (!inRange(d, range)) return;
-      const s = sessions[d];
-      if (s && s.endTs) {
-        sportCount++;
-        sportMin += Math.round((s.endTs - s.startTs) / 60000);
-      }
-    });
-    let todoTotal = 0, todoDone = 0;
-    Object.keys(state.calendarData).forEach(d => {
-      if (!inRange(d, range)) return;
-      (state.calendarData[d] || []).forEach(it => {
-        todoTotal++;
-        if (it.done) todoDone++;
-      });
-    });
-    const txList = state.transactions.filter(x => inRange(x.date, range));
-    const txExp = txList.filter(x => x.type === 'expense');
-    const txInc = txList.filter(x => x.type === 'income');
-    const totalExp = txExp.reduce((s, x) => s + x.amount, 0);
-    const totalInc = txInc.reduce((s, x) => s + x.amount, 0);
-    const catMap = {};
-    txExp.forEach(x => { catMap[x.category] = (catMap[x.category] || 0) + x.amount; });
-    const topCats = Object.entries(catMap).sort((a,b) => b[1]-a[1]).slice(0, 5);
-    const checks = getChecks();
-    let skinDone = 0;
-    Object.keys(checks).forEach(k => {
-      const m = k.match(/^skin_(\d{4}-\d{2}-\d{2})_/);
-      if (m && inRange(m[1], range) && checks[k]) skinDone++;
-    });
-    const hist = getBodyHistory();
-    const inRangeBody = hist.filter(x => inRange(x.date, range));
-    let weightStart = null, weightEnd = null, weightMin = null, weightMax = null;
-    if (inRangeBody.length) {
-      weightStart = inRangeBody[0].weight;
-      weightEnd = inRangeBody[inRangeBody.length - 1].weight;
-      weightMin = Math.min.apply(null, inRangeBody.map(x => x.weight));
-      weightMax = Math.max.apply(null, inRangeBody.map(x => x.weight));
-    }
-    return {
-      range, sportCount, sportMin, todoTotal, todoDone,
-      txCount: txList.length, totalExp, totalInc, topCats, skinDone,
-      weightStart, weightEnd, weightMin, weightMax
-    };
-  }
-
-  function diffDelta(cur, prev){
-    const d = cur - prev;
-    if (Math.abs(d) < 0.01) return { text: '持平', cls: 'same', d: 0 };
-    return d > 0 ? { text: `↑ ${d.toFixed(d < 10 ? 1 : 0)}`, cls: 'down', d } : { text: `↓ ${Math.abs(d).toFixed(Math.abs(d) < 10 ? 1 : 0)}`, cls: 'up', d };
-  }
-
-  function renderReport(report, aiText, aiPending){
-    const range = report.cur.range;
-    const cur = report.cur, prev = report.prev;
-    const label = report.type === 'week' ? '周报' : '月报';
-    const rangeLabel = report.type === 'week' ? `${range.start} ~ ${range.end}` : range.label;
-
-    reportHeaderTitle.textContent = label;
-    let html = `<div class="report-title">${label}</div><div class="report-sub">${rangeLabel}</div>`;
-
-    const sportDelta = diffDelta(cur.sportCount, prev.sportCount);
-    const minDelta = diffDelta(cur.sportMin, prev.sportMin);
-    html += `<div class="report-grid">
-      <div class="report-cell"><div class="rc-label">运动次数</div><div class="rc-value">${cur.sportCount} 次</div><div class="rc-delta ${sportDelta.cls}">${sportDelta.text}</div></div>
-      <div class="report-cell"><div class="rc-label">运动时长</div><div class="rc-value">${cur.sportMin}<span style="font-size:13px;font-weight:500;color:#8A90A2"> 分钟</span></div><div class="rc-delta ${minDelta.cls}">${minDelta.text}</div></div>
-      <div class="report-cell"><div class="rc-label">记账笔数</div><div class="rc-value">${cur.txCount} 笔</div><div class="rc-delta ${diffDelta(cur.txCount, prev.txCount).cls}">${diffDelta(cur.txCount, prev.txCount).text}</div></div>
-      <div class="report-cell"><div class="rc-label">护肤打卡</div><div class="rc-value">${cur.skinDone} 项</div><div class="rc-delta ${diffDelta(cur.skinDone, prev.skinDone).cls}">${diffDelta(cur.skinDone, prev.skinDone).text}</div></div>
-    </div>`;
-
-    if (cur.weightStart !== null && cur.weightEnd !== null) {
-      const wd = cur.weightEnd - cur.weightStart;
-      const wdText = wd > 0.05 ? `↑ ${wd.toFixed(1)} kg` : wd < -0.05 ? `↓ ${Math.abs(wd).toFixed(1)} kg` : '持平';
-      const wdCls = wd > 0.05 ? 'warn' : wd < -0.05 ? 'good' : '';
-      html += `<div class="report-card">
-        <div class="rc-title">⚖️ 体重变化</div>
-        <div class="report-line"><span class="rl-k">期初 → 期末</span><span class="rl-v">${cur.weightStart.toFixed(1)} → ${cur.weightEnd.toFixed(1)} kg</span></div>
-        <div class="report-line"><span class="rl-k">变化</span><span class="rl-v ${wdCls}">${wdText}</span></div>
-        <div class="report-line"><span class="rl-k">区间最低/最高</span><span class="rl-v">${cur.weightMin.toFixed(1)} / ${cur.weightMax.toFixed(1)} kg</span></div>
-      </div>`;
-    }
-
-    if (cur.todoTotal > 0) {
-      const pct = Math.round(cur.todoDone / cur.todoTotal * 100);
-      const cls = pct >= 80 ? 'good' : pct >= 50 ? '' : 'warn';
-      html += `<div class="report-card">
-        <div class="rc-title">✅ 待办完成</div>
-        <div class="report-line"><span class="rl-k">完成</span><span class="rl-v ${cls}">${cur.todoDone} / ${cur.todoTotal}（${pct}%）</span></div>
-      </div>`;
-    }
-
-    if (cur.txCount > 0) {
-      const expDelta = diffDelta(cur.totalExp, prev.totalExp);
-      let catLines = cur.topCats.map(([k, v]) =>
-        `<div class="report-line"><span class="rl-k">${k}</span><span class="rl-v">¥ ${v.toFixed(2)}</span></div>`).join('');
-      html += `<div class="report-card">
-        <div class="rc-title">💰 账目</div>
-        <div class="report-line"><span class="rl-k">支出</span><span class="rl-v">¥ ${cur.totalExp.toFixed(2)} <span style="font-size:11.5px;color:${expDelta.cls==='up'?'#FF6B5B':expDelta.cls==='down'?'#1FBFA9':'#8A90A2'}">${expDelta.text}</span></span></div>
-        <div class="report-line"><span class="rl-k">收入</span><span class="rl-v">¥ ${cur.totalInc.toFixed(2)}</span></div>
-        <div class="report-line"><span class="rl-k">结余</span><span class="rl-v">¥ ${(cur.totalInc - cur.totalExp).toFixed(2)}</span></div>
-        ${catLines ? `<div style="font-size:11.5px;color:#8A90A2;margin-top:10px;margin-bottom:4px">支出前几类：</div>${catLines}` : ''}
-      </div>`;
-    }
-
-    html += `<div class="report-card">
-      <div class="rc-title">🤖 AI 小结</div>
-      <div class="report-ai" id="reportAiBox">${aiPending ? '<span class="ai-typing"></span>' : (aiText || '（AI 未生成小结）')}</div>
-    </div>`;
-
-    html += `<div class="report-actions">
-      <button class="secondary" id="reportRegenBtn">↻ 重新生成</button>
-      <button class="primary" id="reportCloseBottomBtn">完成</button>
-    </div>`;
-
-    reportBody.innerHTML = html;
-
-    document.getElementById('reportCloseBottomBtn')?.addEventListener('click', () => reportPanel.classList.remove('show'));
-    document.getElementById('reportRegenBtn')?.addEventListener('click', () => generateReport(report.type, true));
-  }
-
-  function buildAiPrompt(type, cur, prev){
-    const label = type === 'week' ? '本周' : '本月';
-    const lastLabel = type === 'week' ? '上周' : '上月';
-    const curText = [
-      `运动：${cur.sportCount} 次，共 ${cur.sportMin} 分钟`,
-      `记账：${cur.txCount} 笔，支出 ¥${cur.totalExp.toFixed(2)}，收入 ¥${cur.totalInc.toFixed(2)}`,
-      cur.todoTotal > 0 ? `待办：完成 ${cur.todoDone}/${cur.todoTotal}` : '',
-      `护肤打卡：${cur.skinDone} 项`,
-      cur.weightStart !== null ? `体重：${cur.weightStart.toFixed(1)} → ${cur.weightEnd.toFixed(1)} kg` : ''
-    ].filter(Boolean).join('\n');
-    const prevText = [
-      `运动：${prev.sportCount} 次，共 ${prev.sportMin} 分钟`,
-      `记账：${prev.txCount} 笔，支出 ¥${prev.totalExp.toFixed(2)}`,
-      prev.todoTotal > 0 ? `待办：完成 ${prev.todoDone}/${prev.todoTotal}` : '',
-      `护肤打卡：${prev.skinDone} 项`
-    ].filter(Boolean).join('\n');
-    return `请为我的健康 ${label}写一段简短总结（80-150字），语气温和鼓励，指出 1-2 个亮点，1 个可以改进的地方，给出 1 条具体建议。不要用列表，直接写成连贯的段落。
-
-【${lastLabel}】\n${prevText}
-
-【${label}】\n${curText}`;
-  }
-
-  function generateReport(type, forceRegen){
-    let curRange, prevRange;
-    if (type === 'week') {
-      curRange = getWeekRange(-1);
-      prevRange = getWeekRange(-2);
-    } else {
-      curRange = getMonthRange(-1);
-      prevRange = getMonthRange(-2);
-    }
-    const cur = collectStats(curRange);
-    const prev = collectStats(prevRange);
-    const report = { type, cur, prev, generatedAt: Date.now() };
-
-    reportPanel.classList.add('show');
-    reportBody.scrollTop = 0;
-
-    renderReport(report, '', true);
-
-    if (window.AndroidBridge && typeof AndroidBridge.sendStyling === 'function') {
-      window.__reportAiBuf = '';
-      window.__reportCtx = { type };
-      const prompt = buildAiPrompt(type, cur, prev);
-      try {
-        AndroidBridge.sendStyling(prompt);
-      } catch(e) {
-        setReportAiText('AI 服务不可用');
-      }
-    } else {
-      setReportAiText('（当前环境无 AI 服务）');
-    }
-
-    saveReportToHistory(report);
-  }
-
-  function setReportAiText(text){
-    const box = document.getElementById('reportAiBox');
-    if (box) box.textContent = text;
-  }
-
-  function saveReportToHistory(report){
-    try {
-      const list = Store.load('reportHistory', []);
-      const key = report.type + '_' + report.cur.range.start;
-      const exist = list.findIndex(x => x.key === key);
-      const item = {
-        key, type: report.type,
-        rangeStart: report.cur.range.start,
-        rangeEnd: report.cur.range.end,
-        generatedAt: Date.now(),
-        stats: {
-          sportCount: report.cur.sportCount,
-          sportMin: report.cur.sportMin,
-          txCount: report.cur.txCount,
-          totalExp: report.cur.totalExp,
-          skinDone: report.cur.skinDone,
-          weightEnd: report.cur.weightEnd
-        }
-      };
-      if (exist >= 0) list[exist] = item; else list.push(item);
-      list.sort((a, b) => b.generatedAt - a.generatedAt);
-      Store.save('reportHistory', list.slice(0, 20));
-    } catch(e){}
-  }
-
-  const _origChatResult = window.onNativeChatResult;
-  window.onNativeChatResult = function(chunk, tag){
-    if (tag === 'styling' && window.__reportCtx) {
-      window.__reportAiBuf = (window.__reportAiBuf || '') + String(chunk || '');
-      setReportAiText(window.__reportAiBuf);
-      return;
-    }
-    if (typeof _origChatResult === 'function') _origChatResult(chunk, tag);
-  };
-  const _origChatState = window.onNativeChatState;
-  window.onNativeChatState = function(state, tag){
-    if (tag === 'styling' && window.__reportCtx && state === 'finished') {
-      window.__reportCtx = null;
-      window.__stylingBuf = '';
-      return;
-    }
-    if (typeof _origChatState === 'function') _origChatState(state, tag);
-  };
-  const _origChatError = window.onNativeChatError;
-  window.onNativeChatError = function(msg, tag){
-    if (tag === 'styling' && window.__reportCtx) {
-      setReportAiText('AI 生成失败：' + (msg || '未知错误'));
-      window.__reportCtx = null;
-      return;
-    }
-    if (typeof _origChatError === 'function') _origChatError(msg, tag);
-  };
-
-  function showHistory(){
-    const list = Store.load('reportHistory', []);
-    let html = '<div class="report-title">历史报告</div>';
-    if (!list.length) {
-      html += '<div class="report-empty">还没有历史报告<br>生成后会保存到这里</div>';
-    } else {
-      list.forEach(item => {
-        const d = new Date(item.generatedAt);
-        const dateStr = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-        const typeLabel = item.type === 'week' ? '周报' : '月报';
-        const s = item.stats || {};
-        html += `<div class="report-history-item" data-replay-type="${item.type}">
-          <div class="rhi-ic">${item.type === 'week' ? '📅' : '📆'}</div>
-          <div class="rhi-body">
-            <div class="rhi-t">${typeLabel} · ${item.rangeStart} ~ ${item.rangeEnd}</div>
-            <div class="rhi-s">运动 ${s.sportCount||0} 次 · 支出 ¥${(s.totalExp||0).toFixed(0)} · 生成于 ${dateStr}</div>
-          </div>
-        </div>`;
-      });
-    }
-    html += '<div class="report-actions"><button class="secondary" id="reportBackBtn" style="flex:1">返回</button></div>';
-    reportHeaderTitle.textContent = '历史报告';
-    reportBody.innerHTML = html;
-    document.getElementById('reportBackBtn')?.addEventListener('click', () => {
-      reportPanel.classList.remove('show');
-    });
-    reportBody.querySelectorAll('[data-replay-type]').forEach(el => {
-      el.addEventListener('click', () => {
-        generateReport(el.dataset.replayType, true);
-      });
-    });
-  }
-
-  function checkAutoGenerate(){
-    const now = new Date();
-    const dow = now.getDay();
-    const dom = now.getDate();
-    if (dow === 1) {
-      const key = 'week_' + getWeekRange(-1).start;
-      const list = Store.load('reportHistory', []);
-      if (!list.find(x => x.key === key)) {
-        const lastPrompt = Store.load('lastReportPrompt', 0);
-        if (Date.now() - lastPrompt > 20 * 3600 * 1000) {
-          Store.save('lastReportPrompt', Date.now());
-          setTimeout(() => { if (confirm('新的一周开始了，看看上周的健康报告？')) generateReport('week'); }, 1500);
-        }
-      }
-    }
-    if (dom === 1) {
-      const key = 'month_' + getMonthRange(-1).start;
-      const list = Store.load('reportHistory', []);
-      if (!list.find(x => x.key === key)) {
-        const lastPrompt = Store.load('lastReportPrompt', 0);
-        if (Date.now() - lastPrompt > 20 * 3600 * 1000) {
-          Store.save('lastReportPrompt', Date.now());
-          setTimeout(() => { if (confirm('新的一月开始了，看看上月健康报告？')) generateReport('month'); }, 1800);
-        }
-      }
-    }
-  }
-
-  document.addEventListener('click', (e) => {
-    if (e.target.closest('[data-open-report]')) {
-      generateReport('week');
-    }
-  });
-  reportCloseBtn.addEventListener('click', () => reportPanel.classList.remove('show'));
-  reportHistoryBtn.addEventListener('click', showHistory);
-
-  window.__generateReport = generateReport;
-
-  setTimeout(checkAutoGenerate, 3000);
-})();
-
-/* ========== 增强补丁：设置 / 备份 / 历史备份 ========== */
-(function(){
-  if (window.__enhancedV3) return; window.__enhancedV3 = true;
-
-  function getSetting(key, def){
-    try { const v = window.__appStorageGet('app_setting_'+key); return v===null?def:JSON.parse(v); }
-    catch(e){ return def; }
-  }
-  function saveSetting(key, val){
-    window.__appStorageSet('app_setting_'+key, JSON.stringify(val));
-  }
-  window.getAppSetting = getSetting;
-  window.saveAppSetting = saveSetting;
-
-  const BACKUP_KEYS = [
-    'app_body','app_setsDone','app_supplements','app_profile','app_customCats',
-    'app_skinState','app_freeSlots',
-    'app_selectedDate','app_calYear','app_calMonth','app_exportRange','app_aiScene','app_libFilter',
-    'app_customSkinSteps','app_setting_sit_reminder','app_setting_notification',
-    'app_setting_voice_duration','app_setting_sport_timeout',
-    'app_bodyHistory','app_noteCategoryMap','app_skinStateDate',
-    'dailyChecks','planStartDate','planOverrides','todoStatus','calendarManual',
-    'sportSessions','transactions','clothes','skinProducts',
-    'lastBackupAt','firstUseAt','last_sit_reminder'
-  ];
-
-  function collectBackup(){
-    const data = {};
-    const keys = {};
-    BACKUP_KEYS.forEach(k => { keys[k] = 1; });
-    try {
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i);
-        if (k) keys[k] = 1;
-      }
-    } catch(e){}
-    Object.keys(keys).forEach(k => {
-      if (k === 'last_crash') return;
-      try {
-        const v = window.__appStorageGet(k);
-        if (v !== null && v !== undefined && v !== '') data[k] = v;
-      } catch(e){}
-    });
-    return { version:1, app:'health-life', exportedAt:new Date().toISOString(), data };
-  }
-  window.__collectBackup = collectBackup;
-
-  function downloadCsv(rows, filename){
-    const csv = rows.map(r => r.map(csvEscape).join(',')).join('\r\n');
-    const blob = new Blob(['\ufeff' + csv], { type:'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = filename;
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    setTimeout(() => { try { URL.revokeObjectURL(url); } catch(e){} }, 3000);
-  }
-  function exportWeightCsv(){
-    const h = getBodyHistory();
-    if (!h.length) { alert('暂无体重记录'); return; }
-    const rows = [['日期','体重(kg)','体脂率(%)']];
-    h.forEach(x => rows.push([x.date, x.weight, x.bodyFat]));
-    downloadCsv(rows, `体重体脂_${todayStr()}.csv`);
-  }
-  function exportSportCsv(){
-    const all = getSportSessions();
-    const keys = Object.keys(all).sort();
-    if (!keys.length) { alert('暂无训练记录'); return; }
-    const rows = [['日期','开始','结束','时长(分)','完成组数']];
-    keys.forEach(k => {
-      const s = all[k];
-      const dur = s.endTs ? Math.round((s.endTs - s.startTs) / 60000) : '';
-      const sets = Object.values(s.sets || {}).reduce((a, b) => a + b.length, 0);
-      rows.push([k, s.startLabel || '', s.endTs ? fmtTime(new Date(s.endTs)) : '', dur, sets]);
-    });
-    downloadCsv(rows, `训练打卡_${todayStr()}.csv`);
-  }
-  function exportSkinCsv(){
-    const checks = getChecks();
-    const keys = Object.keys(checks).filter(k => k.indexOf('skin_') === 0).sort();
-    if (!keys.length) { alert('暂无护肤打卡记录'); return; }
-    const rows = [['日期','步骤ID','已完成']];
-    keys.forEach(k => {
-      const m = k.match(/^skin_(\d{4}-\d{2}-\d{2})_(.+)$/);
-      if (m) rows.push([m[1], m[2], '是']);
-    });
-    downloadCsv(rows, `护肤打卡_${todayStr()}.csv`);
-  }
-  function exportTxCsv(){
-    const list = state.transactions;
-    if (!list.length) { alert('暂无记账记录'); return; }
-    const rows = [['日期','时间','金额','类型','分类','备注']];
-    list.slice().sort((a, b) => a.date.localeCompare(b.date)).forEach(t => {
-      rows.push([t.date, t.time, t.amount, t.type === 'income' ? '收入' : '支出', t.category, t.note]);
-    });
-    downloadCsv(rows, `记账记录_${todayStr()}.csv`);
-  }
-
-  /* ===== 导出备份：localStorage + 衣橱图片（IndexedDB → base64） ===== */
-  async function exportBackup(){
-    let pack;
-    try { pack = collectBackup(); } catch(e){ alert('读取数据失败：' + e.message); return; }
-
-    // 导出衣橱图片（IndexedDB 里的 blob → base64）
-    let imgCount = 0;
-    try {
-      const imgs = await imageDB.listAll();
-      const imgMap = {};
-      for (const it of imgs) {
-        if (!it || !it.id || !it.blob) continue;
-        try {
-          const b64 = await blobToBase64(it.blob);
-          imgMap[it.id] = { mime: it.blob.type || 'image/png', data: b64 };
-          imgCount++;
-        } catch(e){ console.warn('encode image failed', it.id, e); }
-      }
-      if (imgCount > 0) pack.images = imgMap;
-    } catch(e){ console.warn('export images failed', e); }
-
-    const count = Object.keys(pack.data).length;
-    if (!count && imgCount === 0) { alert('暂无可导出的数据'); return; }
-
-    const json = JSON.stringify(pack, null, 2);
-    window.__appStorageSet('lastBackupAt', String(Date.now()));
-
-    const sizeMB = (json.length / 1024 / 1024).toFixed(2);
-    const tipMsg = `共 ${count} 项数据${imgCount > 0 ? ` + ${imgCount} 张衣橱图片` : ''}（约 ${sizeMB} MB）`;
-
-    try {
-      if (window.AndroidBridge && typeof AndroidBridge.saveBackup === 'function') {
-        AndroidBridge.saveBackup(json);
-        alert(`已导出：${tipMsg}`);
-        return;
-      }
-    } catch(e){ console.warn('native saveBackup failed', e); }
-
-    let downloaded = false;
-    try {
-      const blob = new Blob([json], { type:'application/json;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `健康生活备份_${todayStr()}.json`;
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
-      setTimeout(() => { try { URL.revokeObjectURL(url); } catch(e){} }, 3000);
-      downloaded = true;
-    } catch(e){}
-
-    const ta = document.getElementById('backupTextBox');
-    if (ta) {
-      ta.value = json;
-      ta.style.display = 'block';
-      try { ta.focus(); ta.select(); } catch(e){}
-    }
-    if (downloaded) alert(`已生成备份文件：${tipMsg}`);
-    else alert(`已在下方生成备份文本：${tipMsg}，请长按复制。`);
-  }
-
-  /* ===== 导入备份：localStorage + 衣橱图片（base64 → IndexedDB） ===== */
-  function importBackup(file){
-    const reader = new FileReader();
-    reader.onload = async function(ev){
-      let pack;
-      try { pack = JSON.parse(ev.target.result); }
-      catch(e){ alert('文件格式错误'); return; }
-      const data = pack && pack.data;
-      if (!data) { alert('备份文件内容无效'); return; }
-      const keys = Object.keys(data);
-      const imgKeys = (pack && pack.images && typeof pack.images === 'object') ? Object.keys(pack.images) : [];
-      if (!keys.length && !imgKeys.length) { alert('备份文件为空'); return; }
-      if (!confirm(`将导入 ${keys.length} 项数据${imgKeys.length ? ` + ${imgKeys.length} 张衣橱图片` : ''}，覆盖当前记录。确定继续？`)) return;
-
-      // 1. 先恢复 localStorage 数据
-      let ok = 0;
-      keys.forEach(k => { try { window.__appStorageSet(k, data[k]); ok++; } catch(e){} });
-
-      // 2. 恢复 IndexedDB 里的图片
-      let imgOk = 0;
-      if (imgKeys.length) {
-        for (const id of imgKeys) {
-          try {
-            const item = pack.images[id];
-            // 兼容两种格式：{mime, data} 或直接 base64 字符串
-            const b64 = (item && typeof item === 'object') ? item.data : item;
-            const mime = (item && typeof item === 'object') ? item.mime : 'image/png';
-            if (!b64) continue;
-            const blob = base64ToBlob(b64, mime);
-            await imageDB.put(id, blob);
-            imgOk++;
-          } catch(e){ console.warn('restore image failed', id, e); }
-        }
-      }
-
-      window.__appStorageSet('lastBackupAt', String(Date.now()));
-      alert(`已恢复 ${ok} 项数据${imgOk ? ` + ${imgOk} 张图片` : ''}。App 将重启。`);
-      setTimeout(() => { try { location.reload(); } catch(e){} }, 1000);
-    };
-    reader.readAsText(file);
-  }
-
-  function clearAllData(){
-    if (!confirm('⚠️ 即将删除全部数据。确定继续？')) return;
-    if (!confirm('请再次确认：真的要清空所有数据吗？')) return;
-    const keys = {};
-    BACKUP_KEYS.forEach(k => { keys[k] = 1; });
-    try {
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i);
-        if (k && k !== 'firstUseAt') keys[k] = 1;
-      }
-    } catch(e){}
-    Object.keys(keys).forEach(k => { try { window.__appStorageRemove(k); } catch(e){} });
-    try { localStorage.clear(); } catch(e){}
-    try { if (imageDB._db) imageDB._db.close(); indexedDB.deleteDatabase('health_app_images'); } catch(e){}
-    alert('已清空所有数据。');
-    setTimeout(() => { try { location.reload(); } catch(e){} }, 800);
-  }
-
-  function sendNotification(title, body){
-    try {
-      if (!getSetting('notification', true)) return;
-      if (typeof Notification === 'undefined') return;
-      if (Notification.permission === 'granted') new Notification(title, { body });
-      else if (Notification.permission !== 'denied') {
-        Notification.requestPermission().then(p => { if (p === 'granted') new Notification(title, { body }); });
-      }
-    } catch(e){}
-  }
-  window.sendAppNotification = sendNotification;
-
-  function initSitReminder(){
-    try { window.__lastSitReminder = parseInt(window.__appStorageGet('last_sit_reminder') || '0'); } catch(e){ window.__lastSitReminder = 0; }
-    if (!window.__lastSitReminder) {
-      window.__lastSitReminder = Date.now();
-      window.__appStorageSet('last_sit_reminder', String(window.__lastSitReminder));
-    }
-    setInterval(function(){
-      if (!getSetting('sit_reminder', true)) return;
-      const now = Date.now();
-      if (now - window.__lastSitReminder < 30 * 60 * 1000) return;
-      window.__lastSitReminder = now;
-      window.__appStorageSet('last_sit_reminder', String(now));
-      if (typeof showCenterTimer === 'function') showCenterTimer(200);
-      sendNotification('该站起来走动了', '起身 → 走动2–3分钟 → 下巴轻收5次 → 肩胛向后下轻收5–8次');
-    }, 60 * 1000);
-  }
-
-  const SEL_CSS = 'width:90px;border:1.5px solid #E3E6EF;border-radius:10px;padding:8px 10px;font-family:inherit;font-size:14px;font-weight:600;text-align:right;color:#1B1F2A;background:#fff;outline:none';
-
-  function injectAppSettings(){
-    const b = document.getElementById('settingsBody');
-    if (!b || document.getElementById('appSettingsSection')) return;
-    const sit = getSetting('sit_reminder', true);
-    const notif = getSetting('notification', true);
-    const vd = getSetting('voice_duration', 15);
-    const sport = getSetting('sport_timeout', true);
-    const d = document.createElement('div');
-    d.id = 'appSettingsSection';
-    d.style.cssText = 'margin-top:20px;padding-top:16px;border-top:1px solid #EDEFF5';
-    d.innerHTML =
-      '<div style="font-size:12px;font-weight:700;color:#8A90A2;letter-spacing:.5px;margin:14px 0 4px">应用设置</div>' +
-      '<div class="set-row"><span class="lb">久坐提醒（每30分钟）</span>' +
-        '<select id="setSitReminder" style="' + SEL_CSS + '">' +
-        '<option value="1"' + (sit?' selected':'') + '>开</option>' +
-        '<option value="0"' + (!sit?' selected':'') + '>关</option></select></div>' +
-      '<div class="set-row"><span class="lb">后台通知 / 备份提醒</span>' +
-        '<select id="setNotification" style="' + SEL_CSS + '">' +
-        '<option value="1"' + (notif?' selected':'') + '>开</option>' +
-        '<option value="0"' + (!notif?' selected':'') + '>关</option></select></div>' +
-      '<div class="set-row"><span class="lb">语音时长</span>' +
-        '<select id="setVoiceDuration" style="' + SEL_CSS + '">' +
-        '<option value="10"' + (vd==10?' selected':'') + '>10 秒</option>' +
-        '<option value="15"' + (vd==15?' selected':'') + '>15 秒</option>' +
-        '<option value="20"' + (vd==20?' selected':'') + '>20 秒</option></select></div>' +
-      '<div class="set-row"><span class="lb">训练超时提醒</span>' +
-        '<select id="setSportTimeout" style="' + SEL_CSS + '">' +
-        '<option value="1"' + (sport?' selected':'') + '>开</option>' +
-        '<option value="0"' + (!sport?' selected':'') + '>关</option></select></div>' +
-      '<p style="font-size:11.5px;color:#8A90A2;margin-top:8px;line-height:1.6">久坐提醒：App 在前台时每 30 分钟弹一次。语音时长修改后立即生效。</p>' +
-      '<div style="font-size:12px;font-weight:700;color:#8A90A2;letter-spacing:.5px;margin:20px 0 8px;padding-top:16px;border-top:1px solid #EDEFF5">数据备份</div>' +
-      '<button id="exportDataBtn" style="width:100%;border:none;font-family:inherit;font-size:14px;font-weight:600;color:#fff;padding:13px;border-radius:12px;cursor:pointer;background:linear-gradient(135deg,#8B7CF6,#B39BFF);margin-bottom:8px">⬇️ 导出数据备份（JSON，含衣橱图片）</button>' +
-      '<label for="importDataFile" style="display:block;text-align:center;width:100%;border:1.5px solid #E3E6EF;font-family:inherit;font-size:14px;font-weight:600;color:#5A6175;padding:12px;border-radius:12px;cursor:pointer;background:#fff;box-sizing:border-box">⬆️ 导入备份文件</label>' +
-      '<input type="file" id="importDataFile" accept=".json,application/json" style="display:none">' +
-      '<p style="font-size:11.5px;color:#8A90A2;margin-top:8px;line-height:1.6">包含记账、日历、运动打卡、衣橱（含图片）、护肤、补剂、设置等。图片会显著增大文件体积，建议每 30 天导出一次。</p>' +
-      '<textarea id="backupTextBox" readonly placeholder="点击上方按钮后，备份内容会显示在这里" style="display:none;width:100%;height:150px;margin-top:10px;border:1.5px solid #E3E6EF;border-radius:10px;padding:10px;font-size:11px;font-family:monospace;line-height:1.5;color:#3A4152;background:#fff;outline:none;box-sizing:border-box"></textarea>' +
-      '<div style="font-size:12px;font-weight:700;color:#8A90A2;letter-spacing:.5px;margin:20px 0 8px;padding-top:16px;border-top:1px solid #EDEFF5">健康报告</div>' +
-      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">' +
-        '<button id="genWeekReportBtn" style="border:none;font-family:inherit;font-size:13px;font-weight:600;color:#fff;padding:12px;border-radius:12px;cursor:pointer;background:linear-gradient(135deg,#1FBFA9,#5FD9C4)">📅 生成周报</button>' +
-        '<button id="genMonthReportBtn" style="border:none;font-family:inherit;font-size:13px;font-weight:600;color:#fff;padding:12px;border-radius:12px;cursor:pointer;background:linear-gradient(135deg,#4A9EFF,#7FC4FF)">📆 生成月报</button>' +
-      '</div>' +
-      '<button id="openReportHistoryBtn" style="width:100%;border:none;font-family:inherit;font-size:14px;font-weight:600;color:#5A6175;padding:13px;border-radius:12px;cursor:pointer;background:#F3F5F9;margin-bottom:12px">📂 查看历史报告</button>' +
-      '<div style="font-size:12px;font-weight:700;color:#8A90A2;letter-spacing:.5px;margin:20px 0 8px;padding-top:16px;border-top:1px solid #EDEFF5">历史备份（自动，最近 7 天）</div>' +
-      '<button id="listBackupsBtn" style="width:100%;border:none;font-family:inherit;font-size:14px;font-weight:600;color:#5A6175;padding:13px;border-radius:12px;cursor:pointer;background:#F3F5F9;margin-bottom:8px">📂 查看历史备份</button>' +
-      '<div id="backupListBox" style="display:none;margin-bottom:12px"></div>' +
-      '<div style="font-size:12px;font-weight:700;color:#8A90A2;letter-spacing:.5px;margin:20px 0 8px;padding-top:16px;border-top:1px solid #EDEFF5">分类导出（CSV）</div>' +
-      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">' +
-        '<button id="exportWeightCsvBtn" style="border:none;font-family:inherit;font-size:12.5px;font-weight:600;color:#5A6175;padding:10px;border-radius:10px;cursor:pointer;background:#F3F5F9">⚖️ 体重体脂</button>' +
-        '<button id="exportSportCsvBtn" style="border:none;font-family:inherit;font-size:12.5px;font-weight:600;color:#5A6175;padding:10px;border-radius:10px;cursor:pointer;background:#F3F5F9">🏋️ 训练打卡</button>' +
-        '<button id="exportSkinCsvBtn" style="border:none;font-family:inherit;font-size:12.5px;font-weight:600;color:#5A6175;padding:10px;border-radius:10px;cursor:pointer;background:#F3F5F9">🌸 护肤打卡</button>' +
-        '<button id="exportTxCsvBtn" style="border:none;font-family:inherit;font-size:12.5px;font-weight:600;color:#5A6175;padding:10px;border-radius:10px;cursor:pointer;background:#F3F5F9">💰 记账记录</button>' +
-      '</div>' +
-      '<div style="font-size:12px;font-weight:700;color:#FF6B5B;letter-spacing:.5px;margin:20px 0 8px;padding-top:16px;border-top:1px solid #EDEFF5">危险操作</div>' +
-      '<button id="clearAllDataBtn" style="width:100%;border:1.5px solid #FF6B5B;font-family:inherit;font-size:14px;font-weight:600;color:#FF6B5B;padding:13px;border-radius:12px;cursor:pointer;background:#FFEDEA">🗑️ 清空所有数据（不可恢复）</button>';
-    b.appendChild(d);
-
-    d.addEventListener('change', function(e){
-      const id = e.target.id;
-      if (id === 'setSitReminder') {
-        const on = e.target.value === '1';
-        saveSetting('sit_reminder', on);
-        try { if (window.AndroidBridge && typeof AndroidBridge.setSitReminder === 'function') AndroidBridge.setSitReminder(on); } catch(err){}
-      }
-      else if (id === 'setNotification') {
-        const on = e.target.value === '1';
-        saveSetting('notification', on);
-        try { if (window.AndroidBridge && typeof AndroidBridge.setBackupReminder === 'function') AndroidBridge.setBackupReminder(on); } catch(err){}
-        if (on && typeof Notification !== 'undefined' && Notification.permission === 'default') {
-          try { Notification.requestPermission(); } catch(e){}
-        }
-      }
-      else if (id === 'setVoiceDuration') {
-        saveSetting('voice_duration', parseInt(e.target.value));
-        alert('语音时长已保存。');
-      }
-      else if (id === 'setSportTimeout') saveSetting('sport_timeout', e.target.value === '1');
-      else if (id === 'importDataFile') {
-        const f = e.target.files && e.target.files[0];
-        if (f) importBackup(f);
-        e.target.value = '';
-      }
-    });
-
-    d.addEventListener('click', function(e){
-      if (e.target.closest('#exportDataBtn')) { e.preventDefault(); exportBackup(); return; }
-      if (e.target.closest('#clearAllDataBtn')) { e.preventDefault(); clearAllData(); return; }
-      if (e.target.closest('#exportWeightCsvBtn')) { e.preventDefault(); exportWeightCsv(); return; }
-      if (e.target.closest('#exportSportCsvBtn')) { e.preventDefault(); exportSportCsv(); return; }
-      if (e.target.closest('#exportSkinCsvBtn')) { e.preventDefault(); exportSkinCsv(); return; }
-      if (e.target.closest('#exportTxCsvBtn')) { e.preventDefault(); exportTxCsv(); return; }
-      if (e.target.closest('#genWeekReportBtn')) {
-        e.preventDefault();
-        if (window.__generateReport) window.__generateReport('week');
-        document.getElementById('settingsMask')?.click();
-        return;
-      }
-      if (e.target.closest('#genMonthReportBtn')) {
-        e.preventDefault();
-        if (window.__generateReport) window.__generateReport('month');
-        document.getElementById('settingsMask')?.click();
-        return;
-      }
-      if (e.target.closest('#openReportHistoryBtn')) {
-        e.preventDefault();
-        document.getElementById('settingsMask')?.click();
-        setTimeout(() => document.getElementById('reportHistoryBtn')?.click(), 300);
-        return;
-      }
-      if (e.target.closest('#listBackupsBtn')) {
-        e.preventDefault();
-        const box = document.getElementById('backupListBox');
-        if (!box) return;
-        if (box.style.display === 'block') { box.style.display = 'none'; return; }
-        if (!window.AndroidBridge || typeof AndroidBridge.listBackups !== 'function') {
-          box.innerHTML = '<p style="font-size:12px;color:#8A90A2">当前环境不支持历史备份</p>';
-          box.style.display = 'block';
-          return;
-        }
-        let list = [];
-        try { list = JSON.parse(AndroidBridge.listBackups() || '[]'); } catch(err){}
-        if (!list.length) {
-          box.innerHTML = '<p style="font-size:12px;color:#8A90A2">暂无历史备份（每天打开 App 时会自动保存一份）</p>';
-        } else {
-          box.innerHTML = list.map(item => {
-            const d2 = new Date(item.time);
-            const sizeK = (item.size / 1024).toFixed(0);
-            const dateStr = item.name;
-            const day = ['日','一','二','三','四','五','六'][d2.getDay()];
-            return `<div class="kv" style="align-items:center">
-              <span class="k" style="width:110px;font-size:12px">${dateStr} 周${day}</span>
-              <span class="v" style="font-size:11.5px;color:#8A90A2">${sizeK} KB</span>
-              <button data-restore-backup="${dateStr}" style="border:none;font-family:inherit;font-size:12px;font-weight:600;color:#8B7CF6;background:#F1EEFF;padding:6px 12px;border-radius:8px;cursor:pointer">恢复</button>
-            </div>`;
-          }).join('');
-        }
-        box.style.display = 'block';
-        return;
-      }
-      const restoreBtn = e.target.closest('[data-restore-backup]');
-      if (restoreBtn) {
-        e.preventDefault();
-        const date = restoreBtn.dataset.restoreBackup;
-        if (!confirm(`确定用 ${date} 的备份覆盖当前数据吗？`)) return;
-        let json = '';
-        try { json = AndroidBridge.readBackup(date); } catch(err){}
-        if (!json) { alert('读取失败'); return; }
-        let pack = null;
-        try { pack = JSON.parse(json); } catch(err){ alert('备份文件损坏'); return; }
-        const data = pack && pack.data;
-        if (!data) { alert('备份内容为空'); return; }
-        const keys = Object.keys(data);
-        keys.forEach(k => { try { window.__appStorageSet(k, data[k]); } catch(err){} });
-        alert(`已恢复 ${keys.length} 项数据。App 将重启。`);
-        setTimeout(() => { try { location.reload(); } catch(err){} }, 800);
-        return;
-      }
-    });
-  }
-
-  function checkCrashLog(){
-    try {
-      const crash = window.__appStorageGet('last_crash');
-      if (!crash) return;
-      setTimeout(function(){
-        if (confirm('上次运行出现异常。是否查看详情？')) {
-          alert('异常信息：\n\n' + crash.slice(0, 800));
-        }
-        window.__appStorageRemove('last_crash');
-      }, 2500);
-    } catch(e){}
-  }
-
-  function checkBackupReminder(){
-    try {
-      const last = parseInt(window.__appStorageGet('lastBackupAt') || '0');
-      const first = parseInt(window.__appStorageGet('firstUseAt') || '0');
-      const now = Date.now();
-      if (!first) { window.__appStorageSet('firstUseAt', String(now)); return; }
-      if (now - first < 3 * 86400000) return;
-      if (last > 0 && now - last < 30 * 86400000) return;
-      setTimeout(function(){
-        if (confirm('已超过 30 天未备份数据。\n\n是否现在导出 JSON 备份？')) {
-          const btn = document.getElementById('exportDataBtn');
-          if (btn) btn.click();
-        }
-      }, 3500);
-    } catch(e){}
-  }
-
-  setInterval(function(){
-    if (typeof getSportSession !== 'function') return;
-    if (!getSetting('sport_timeout', true)) return;
-    const s = getSportSession();
-    if (!s || s.endTs) { window.__sportWarned = false; return; }
-    if (Date.now() - s.startTs > 2 * 3600 * 1000 && !window.__sportWarned) {
-      window.__sportWarned = true;
-      sendNotification('训练已超时', '已经超过 2 小时，记得结束打卡');
-      if (confirm('训练已超过 2 小时，是否结束打卡？')) {
-        if (typeof endSportSession === 'function') endSportSession();
-      }
-    }
-  }, 5 * 60 * 1000);
-
-  setTimeout(function(){
-    injectAppSettings();
-    initSitReminder();
-    checkCrashLog();
-    checkBackupReminder();
-  }, 800);
-
-  document.addEventListener('click', function(e){
-    if (e.target.closest('[data-open-settings]')) setTimeout(injectAppSettings, 150);
-  }, true);
-
-  console.log('[Enhanced v4.5] 完整版已加载（含天气 + 图片备份）');
 })();
 </script>
 </body>
