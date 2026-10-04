@@ -43,7 +43,6 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        // 加载 assets 里的 HTML
         webView.loadUrl("file:///android_asset/index.html");
     }
 
