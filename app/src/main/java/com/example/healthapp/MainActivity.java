@@ -2,17 +2,18 @@ package com.example.healthapp;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.app.AlertDialog;
+import android.content.DialogInterface;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.webkit.ConsoleMessage;
+import android.webkit.JsPromptResult;
 import android.webkit.JsResult;
 import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
-import android.widget.Toast;
-import android.app.AlertDialog;
-import android.content.DialogInterface;
+import android.widget.EditText;
 
 public class MainActivity extends Activity {
 
@@ -36,7 +37,7 @@ public class MainActivity extends Activity {
         s.setMediaPlaybackRequiresUserGesture(false);
         s.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
 
-        // ===== 关键：让 alert / confirm / prompt 正常工作 =====
+        // ===== WebChromeClient：让 alert / confirm / prompt 正常工作 =====
         webView.setWebChromeClient(new WebChromeClient() {
 
             @Override
@@ -69,7 +70,7 @@ public class MainActivity extends Activity {
             @Override
             public boolean onJsPrompt(WebView view, String url, String message,
                                       String defaultValue, final JsPromptResult result) {
-                final android.widget.EditText input = new android.widget.EditText(MainActivity.this);
+                final EditText input = new EditText(MainActivity.this);
                 input.setText(defaultValue == null ? "" : defaultValue);
                 new AlertDialog.Builder(MainActivity.this)
                         .setMessage(message)
