@@ -2,18 +2,37 @@ package com.example.healthapp;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.os.Build;
+import android.os.VibrationEffect;
+import android.os.Vibrator;
+import android.speech.tts.TextToSpeech;
 import android.webkit.JavascriptInterface;
+import android.webkit.WebView;
+
+import java.util.Locale;
 
 public class WebAppInterface {
 
     private final Context ctx;
+    private final WebView webView;
     private final SharedPreferences prefs;
     private final WeatherHelper weather;
+    private TextToSpeech tts;
 
-    public WebAppInterface(Context ctx, WeatherHelper weather) {
+    public WebAppInterface(Context ctx, WebView webView, WeatherHelper weather) {
         this.ctx = ctx;
+        this.webView = webView;
         this.weather = weather;
         this.prefs = ctx.getSharedPreferences("app", Context.MODE_PRIVATE);
+
+        // 初始化 TTS（异步，完成后才可用）
+        try {
+            tts = new TextToSpeech(ctx, status -> {
+                if (status == TextToSpeech.SUCCESS && tts != null) {
+                    try { tts.setLanguage(Locale.CHINA); } catch (Exception ignored) {}
+                }
+            });
+        } catch (Exception ignored) {}
     }
 
     // ---------- 天气 ----------
@@ -45,25 +64,47 @@ public class WebAppInterface {
         prefs.edit().remove(key).apply();
     }
 
-    // ---------- 语音（HTML 里会调，暂留空实现，界面自动走浏览器识别兜底） ----------
+    // ---------- 语音：原生未接入，主动通知 H5 走手动输入 ----------
 
     @JavascriptInterface
     public void startVoice() {
-        // 如需接入原生语音识别，完成后调用：
-        // webView.evaluateJavascript("window.onNativeSpeechResult('识别文本')", null);
-        // 出错时：window.onNativeSpeechError('错误信息')
+        if (webView == null) return;
+        webView.post(() -> {
+            try {
+                webView.evaluateJavascript(
+                        "window.onNativeSpeechError && window.onNativeSpeechError('原生语音未接入，请使用手动输入')",
+                        null);
+            } catch (Exception ignored) {}
+        });
     }
 
     @JavascriptInterface
     public void stopVoice() { }
 
-    // ---------- 声音 / 振动 ----------
+    // ---------- TTS 朗读 ----------
 
     @JavascriptInterface
-    public void speak(String text) { }
+    public void speak(String text) {
+        if (tts == null || text == null) return;
+        try {
+            tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "app_tts");
+        } catch (Exception ignored) {}
+    }
+
+    // ---------- 震动 ----------
 
     @JavascriptInterface
-    public void vibrate() { }
+    public void vibrate() {
+        try {
+            Vibrator v = (Vibrator) ctx.getSystemService(Context.VIBRATOR_SERVICE);
+            if (v == null) return;
+            if (Build.VERSION.SDK_INT >= 26) {
+                v.vibrate(VibrationEffect.createOneShot(200, VibrationEffect.DEFAULT_AMPLITUDE));
+            } else {
+                v.vibrate(200);
+            }
+        } catch (Exception ignored) {}
+    }
 
     // ---------- 设置开关 ----------
 
@@ -88,7 +129,7 @@ public class WebAppInterface {
     @JavascriptInterface
     public String readBackup(String date) { return null; }
 
-    // ---------- AI（HTML 里会调，暂留空，界面会给出提示） ----------
+    // ---------- AI ----------
 
     @JavascriptInterface
     public void sendChat(String payload) { }
